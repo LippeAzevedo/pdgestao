@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PD Gestão - App</title>
+    <!-- Carrega o Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Carrega a biblioteca jsPDF para gerar PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Configuração de Cores e Fontes do Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': {
+                            50: '#fef3f2',
+                            100: '#fde4e1',
+                            200: '#fccbca',
+                            300: '#faa6a4',
+                            400: '#f67a7b',
+                            500: '#f15b5e',
+                            600: '#e33e46', // Cor principal (vermelho/rosa pastel)
+                            700: '#c52a35',
+                            800: '#a3242f',
+                            900: '#86222c',
+                            950: '#480e13'
+                        },
+                        'secondary': {
+                            50: '#f2f8f7',
+                            100: '#e1f0ee',
+                            200: '#c5e2dd',
+                            300: '#a0d1c9',
+                            400: '#76bcaf',
+                            500: '#5ab0a1', // Cor secundária (verde/menta pastel)
+                            600: '#489c8e',
+                            700: '#3c8178',
+                            800: '#336a63',
+                            900: '#2d5852',
+                            950: '#18322e'
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'ui-sans-serif', 'system-ui']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Estilos Globais -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+        }
+        /* Esconde todas as páginas por padrão */
+        .page {
+            display: none;
+        }
+        /* Mostra a página ativa */
+        .page.active {
+            display: block;
+        }
+        /* Estilo do link de navegação ativo */
+        .nav-link.active-nav {
+            border-bottom-width: 2px;
+            color: theme('colors.primary.600');
+            border-color: theme('colors.primary.600');
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Tela de Login -->
+    <div id="login-page" class="flex items-center justify-center min-h-screen bg-primary-50 p-4">
+        <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl">
+            <h1 class="text-3xl font-bold text-center text-primary-700 mb-2">PD Gestão</h1>
+            <p class="text-center text-gray-500 mb-8">Gestão para seu Estúdio</p>
+            
+            <!-- Formulário de Login -->
+            <form id="login-form" class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700 text-center">Login de Administrador</h2>
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-700">Senha</label>
+                    <input type="password" id="login-password" name="login-password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="••••••••">
+                </div>
+                <p id="login-error" class="text-sm text-red-600"></p>
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Aplicação Principal (Escondida por padrão) -->
+    <div id="main-app" class="hidden">
+        <!-- Cabeçalho Fixo -->
+        <header class="bg-white shadow-md sticky top-0 z-10">
+            <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <h1 class="text-2xl font-bold text-primary-700">PD Gestão</h1>
+                    <button id="logout-button" class="text-sm font-medium text-gray-500 hover:text-gray-700">
+                        Sair
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navegação Principal -->
+        <nav class="bg-primary-50 border-b border-primary-100">
+            <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-center space-x-2 sm:space-x-8 -mb-px overflow-x-auto">
+                    <!-- Links de Navegação -->
+                    <button data-page="dashboard-page" class="nav-link active-nav text-primary-600 border-primary-600 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                        </svg>
+                        <span class="hidden sm:inline">Início</span>
+                    </button>
+                    <button data-page="agendamento-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="hidden sm:inline">Agendar</span>
+                    </button>
+                    <!-- Novo Botão Clientes -->
+                    <button data-page="clientes-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 15c-1.55 0-2.959-.5-4.07-1.33A6.97 6.97 0 004 16c0 .34.024.673.07 1h8.86zM6 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zM14 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z" />
+                        </svg>
+                        <span class="hidden sm:inline">Clientes</span>
+                    </button>
+                    <button data-page="servicos-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h.01a1 1 0 100-2H10zm3 0a1 1 0 000 2h.01a1 1 0 100-2H13z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="hidden sm:inline">Serviços</span>
+                    </button>
+                    <button data-page="estoque-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5 8a3 3 0 000 6h10a3 3 0 000-6H5z" />
+                            <path d="M3 8a5 5 0 0110 0h1a5 5 0 010 10H4a5 5 0 010-10h1z" />
+                        </svg>
+                        <span class="hidden sm:inline">Estoque</span>
+                    </button>
+                     <!-- Novo Botão Relatórios -->
+                    <button data-page="relatorios-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                        </svg>
+                        <span class="hidden sm:inline">Relatórios</span>
+                    </button>
+                    <button data-page="backup-page" class="nav-link text-gray-500 hover:text-gray-700 hover:border-gray-300 group inline-flex items-center py-4 px-2 sm:px-4 border-b-2 border-transparent font-medium text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0zM4 3a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V3z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="hidden sm:inline">Backup</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Conteúdo da Página -->
+        <main class="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+            
+            <!-- PÁGINA: INÍCIO (DASHBOARD) -->
+            <div id="dashboard-page" class="page active">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Próximos Agendamentos</h2>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                    <div id="agendamentos-list" class="space-y-4">
+                        <!-- Agendamentos serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: NOVO AGENDAMENTO -->
+            <div id="agendamento-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Novo Agendamento</h2>
+                <form id="agendamento-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto space-y-4">
+                    
+                    <!-- Campo Cliente (Modificado para Select) -->
+                    <div>
+                        <label for="ag-cliente" class="block text-sm font-medium text-gray-700">Cliente</label>
+                        <select id="ag-cliente" name="ag-cliente" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                            <option value="">Selecione um cliente...</option>
+                            <!-- Clientes serão populados pelo JS -->
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Não achou o cliente? Cadastre-o primeiro na página "Clientes".</p>
+                    </div>
+
+                    <div>
+                        <label for="ag-servico" class="block text-sm font-medium text-gray-700">Serviço</label>
+                        <select id="ag-servico" name="ag-servico" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                            <option value="">Selecione um serviço...</option>
+                            <!-- Serviços serão populados pelo JS -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="ag-data" class="block text-sm font-medium text-gray-700">Data e Hora</label>
+                        <input type="datetime-local" id="ag-data" name="ag-data" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="ag-preco" class="block text-sm font-medium text-gray-700">Preço Original (R$)</label>
+                            <input type="number" step="0.01" id="ag-preco" name="ag-preco" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 sm:text-sm" readonly>
+                        </div>
+                        <div>
+                            <label for="ag-desconto-tipo" class="block text-sm font-medium text-gray-700">Tipo de Desconto</label>
+                            <select id="ag-desconto-tipo" name="ag-desconto-tipo" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                                <option value="nenhum">Nenhum</option>
+                                <option value="percent">% (Porcentagem)</option>
+                                <option value="valor">R$ (Valor Fixo)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="ag-desconto-valor" class="block text-sm font-medium text-gray-700">Valor do Desconto</label>
+                        <input type="number" step="0.01" id="ag-desconto-valor" name="ag-desconto-valor" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: 10 ou 50.50">
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700">Preço Final</label>
+                        <p id="ag-preco-final" class="text-2xl font-bold text-secondary-600">R$ 0,00</p>
+                    </div>
+
+                    <div>
+                        <label for="ag-obs" class="block text-sm font-medium text-gray-700">Observações</label>
+                        <textarea id="ag-obs" name="ag-obs" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Alergias, preferências, etc..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end pt-4">
+                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500">
+                            Salvar Agendamento
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- PÁGINA: GERENCIAR CLIENTES (NOVA) -->
+            <div id="clientes-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Gerenciar Clientes</h2>
+                
+                <!-- Formulário de Novo Cliente -->
+                <form id="cliente-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto mb-8 space-y-4">
+                     <h3 class="text-lg font-semibold text-gray-700">Adicionar Novo Cliente</h3>
+                    <div>
+                        <label for="cli-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label>
+                        <input type="text" id="cli-nome" name="cli-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: Maria da Silva" required>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="cli-telefone" class="block text-sm font-medium text-gray-700">Telefone (Whatsapp)</label>
+                            <input type="tel" id="cli-telefone" name="cli-telefone" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="(11) 98765-4321">
+                        </div>
+                        <div>
+                            <label for="cli-nascimento" class="block text-sm font-medium text-gray-700">Data de Nascimento</label>
+                            <input type="date" id="cli-nascimento" name="cli-nascimento" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Salvar Cliente
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Aniversariantes do Mês -->
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-8">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Próximos Aniversários (30 dias)</h3>
+                    <div id="clientes-aniversarios" class="space-y-2">
+                        <!-- Aniversariantes serão inseridos aqui -->
+                    </div>
+                </div>
+
+                <!-- Lista de Clientes -->
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Clientes Cadastrados</h3>
+                    <div id="clientes-list" class="space-y-3">
+                        <!-- Clientes serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: GERENCIAR SERVIÇOS -->
+            <div id="servicos-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Gerenciar Serviços</h2>
+                
+                <!-- Formulário de Novo Serviço -->
+                <form id="servico-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto mb-8 space-y-4">
+                     <h3 class="text-lg font-semibold text-gray-700">Adicionar Novo Serviço</h3>
+                    <div>
+                        <label for="serv-nome" class="block text-sm font-medium text-gray-700">Nome do Serviço</dixcsl>
+                        <input type="text" id="serv-nome" name="serv-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: Design de Sobrancelha" required>
+                    </div>
+                    <div>
+                        <label for="serv-preco" class="block text-sm font-medium text-gray-700">Preço (R$)</label>
+                        <input type="number" step="0.01" id="serv-preco" name="serv-preco" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: 50.00" required>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Salvar Serviço
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Lista de Serviços -->
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Serviços Cadastrados</h3>
+                    <div id="servicos-list" class="space-y-3">
+                        <!-- Serviços serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: CONTROLE DE ESTOQUE -->
+            <div id="estoque-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Controle de Estoque</h2>
+
+                <!-- Formulário de Novo Item -->
+                <form id="estoque-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto mb-8 space-y-4">
+                     <h3 class="text-lg font-semibold text-gray-700">Adicionar Produto ao Estoque</h3>
+                    <div>
+                        <label for="est-nome" class="block text-sm font-medium text-gray-700">Nome do Produto</label>
+                        <input type="text" id="est-nome" name="est-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: Pigmento (Cor), Algodão" required>
+                    </div>
+                    <div>
+                        <label for="est-qtd" class="block text-sm font-medium text-gray-700">Quantidade Inicial</label>
+                        <input type="number" id="est-qtd" name="est-qtd" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Ex: 10" required>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Adicionar ao Estoque
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Lista de Estoque -->
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Produtos em Estoque</h3>
+                    <div id="estoque-list" class="space-y-3">
+                        <!-- Itens do estoque serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
+             <!-- PÁGINA: RELATÓRIOS (NOVA) -->
+            <div id="relatorios-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Relatório de Ganhos</h2>
+                
+                <!-- Formulário de Filtro de Período -->
+                <form id="relatorio-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto mb-8 space-y-4">
+                     <h3 class="text-lg font-semibold text-gray-700">Filtrar por Período</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="rel-data-inicio" class="block text-sm font-medium text-gray-700">Data de Início</label>
+                            <input type="date" id="rel-data-inicio" name="rel-data-inicio" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="rel-data-fim" class="block text-sm font-medium text-gray-700">Data de Fim</label>
+                            <input type="date" id="rel-data-fim" name="rel-data-fim" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500">
+                            Gerar Relatório
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Resultado do Relatório -->
+                <div id="relatorio-resultado" class="hidden">
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <h3 id="relatorio-periodo" class="text-lg font-semibold text-gray-700 mb-4">Resultado para o período:</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-secondary-50 p-4 rounded-lg">
+                                <p class="text-sm font-medium text-secondary-700">Ganhos Totais</p>
+                                <p id="relatorio-ganhos" class="text-3xl font-bold text-secondary-800">R$ 0,00</p>
+                            </div>
+                            <div class="bg-primary-50 p-4 rounded-lg">
+                                <p class="text-sm font-medium text-primary-700">Atendimentos Realizados</p>
+                                <p id="relatorio-atendimentos" class="text-3xl font-bold text-primary-800">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: BACKUP E RESTAURAÇÃO -->
+            <div id="backup-page" class="page">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Backup e Restauração</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Card de Backup -->
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Fazer Backup</h3>
+                        <p class="text-sm text-gray-500 mb-4">Salve todos os seus dados (agendamentos, clientes, serviços, estoque) em um arquivo JSON. Guarde-o em local seguro.</p>
+                        <button id="backup-button" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0zM4 3a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V3z" clip-rule="evenodd" />
+                            </svg>
+                            Baixar Arquivo de Backup
+                        </button>
+                    </div>
+                    
+                    <!-- Card de Restauração -->
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Restaurar Backup</h3>
+                        <p class="text-sm text-gray-500 mb-4">Selecione um arquivo de backup (.json) para restaurar seus dados. <strong class="text-red-600">Atenção: Isso apagará todos os dados atuais.</strong></p>
+                        <input type="file" id="restore-input" accept=".json" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100">
+                        <button id="restore-button" class="mt-4 w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M17 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zM3.293 3.293a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L5 6.414V14a1 1 0 11-2 0V6.414L1.707 7.707a1 1 0 01-1.414-1.414l3-3zM10 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1z" clip-rule="evenodd" />
+                            </svg>
+                            Restaurar Dados
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="modal-confirm" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-600 bg-opacity-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 id="modal-title" class="text-lg font-bold text-gray-900"></h3>
+            <p id="modal-description" class="mt-2 text-sm text-gray-600"></p>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="modal-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none">
+                    Cancelar
+                </button>
+                <button id="modal-ok" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Notificação (Toast) -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden items-center rounded-lg bg-green-600 px-4 py-3 text-white shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="toast-message"></span>
+    </div>
+
+
+    <!-- ====================================================================== -->
+    <!-- SCRIPT DO APLICATIVO -->
+    <!-- ====================================================================== -->
+    <script>
+        // Remove o type="module" para garantir execução correta com window.onload
+        
+        window.onload = function() {
+            // --- VARIÁVEIS GLOBAIS ---
+            let loginPage, mainApp, loginForm, loginError, logoutButton;
+            let navLinks, pages;
+            let servicoForm, servicoNomeInput, servicoPrecoInput, servicosList;
+            let estoqueForm, estoqueNomeInput, estoqueQtdInput, estoqueList;
+            let agendamentoForm, agClienteSelect, agServicoSelect, agDataInput, agPrecoInput, agDescontoTipo, agDescontoValor, agPrecoFinal, agObsInput;
+            let dashboardAgendamentosList;
+            let backupButton, restoreButton, restoreInput;
+            let modalConfirm, modalTitle, modalDescription, modalOk, modalCancel;
+            let toast, toastMessage;
+            
+            // Novas variáveis (Clientes e Relatórios)
+            let clienteForm, cliNomeInput, cliTelefoneInput, cliNascimentoInput, clientesAniversariosList, clientesList;
+            let relatorioForm, relDataInicioInput, relDataFimInput, relatorioResultado, relatorioPeriodo, relatorioGanhos, relatorioAtendimentos;
+
+            // Objeto de estado principal
+            let state = {
+                servicos: [],
+                estoque: [],
+                agendamentos: [],
+                clientes: [] // Novo
+            };
+            
+            let modalConfirmCallback = null;
+
+            // --- FUNÇÕES DE UTILIDADE ---
+
+            function generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            function formatCurrency(value) {
+                return `R$ ${parseFloat(value).toFixed(2).replace('.', ',')}`;
+            }
+
+            function formatDateTime(isoString) {
+                if (!isoString) return 'Data inválida';
+                try {
+                    const date = new Date(isoString);
+                    // Formato: DD/MM/AAAA às HH:MM
+                    const fData = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const fHora = date.toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }).split(' ')[1]; // Pega só a hora
+                    return `${fData} às ${fHora}`;
+                } catch (e) {
+                    console.error("Erro ao formatar data:", isoString, e);
+                    return "Data inválida";
+                }
+            }
+            
+            function formatDate(isoDateString) {
+                if (!isoDateString) return '';
+                // Formato YYYY-MM-DD (input[type=date]) para DD/MM
+                const parts = isoDateString.split('-');
+                if (parts.length === 3) {
+                    return `${parts[2]}/${parts[1]}`; // DD/MM
+                }
+                return 'Data inválida';
+            }
+
+            function showModal(title, description, callback) {
+                modalTitle.textContent = title;
+                modalDescription.textContent = description;
+                modalConfirmCallback = callback;
+                modalConfirm.classList.remove('hidden');
+            }
+
+            function hideModal() {
+                modalConfirm.classList.add('hidden');
+                modalConfirmCallback = null;
+            }
+            
+            function showToast(message) {
+                toastMessage.textContent = message;
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            }
+
+            // --- FUNÇÕES DE PERSISTÊNCIA (localStorage) ---
+            
+            // (Não precisamos mais de load/saveConfig para a senha)
+
+            function loadState() {
+                state.servicos = JSON.parse(localStorage.getItem('pdGestao_servicos')) || [];
+                state.estoque = JSON.parse(localStorage.getItem('pdGestao_estoque')) || [];
+                state.agendamentos = JSON.parse(localStorage.getItem('pdGestao_agendamentos')) || [];
+                state.clientes = JSON.parse(localStorage.getItem('pdGestao_clientes')) || []; // Novo
+            }
+
+            function saveState() {
+                localStorage.setItem('pdGestao_servicos', JSON.stringify(state.servicos));
+                localStorage.setItem('pdGestao_estoque', JSON.stringify(state.estoque));
+                localStorage.setItem('pdGestao_agendamentos', JSON.stringify(state.agendamentos));
+                localStorage.setItem('pdGestao_clientes', JSON.stringify(state.clientes)); // Novo
+            }
+
+            // --- INICIALIZAÇÃO E AUTENTICAÇÃO ---
+
+            function initializeDOMElements() {
+                // Páginas e Navegação
+                loginPage = document.getElementById('login-page');
+                mainApp = document.getElementById('main-app');
+                loginForm = document.getElementById('login-form');
+                loginError = document.getElementById('login-error');
+                logoutButton = document.getElementById('logout-button');
+                
+                navLinks = document.querySelectorAll('.nav-link');
+                pages = document.querySelectorAll('.page');
+
+                // Serviços
+                servicoForm = document.getElementById('servico-form');
+                servicoNomeInput = document.getElementById('serv-nome');
+                servicoPrecoInput = document.getElementById('serv-preco');
+                servicosList = document.getElementById('servicos-list');
+
+                // Estoque
+                estoqueForm = document.getElementById('estoque-form');
+                estoqueNomeInput = document.getElementById('est-nome');
+                estoqueQtdInput = document.getElementById('est-qtd');
+                estoqueList = document.getElementById('estoque-list');
+
+                // Agendamento
+                agendamentoForm = document.getElementById('agendamento-form');
+                agClienteSelect = document.getElementById('ag-cliente');
+                agServicoSelect = document.getElementById('ag-servico');
+                agDataInput = document.getElementById('ag-data');
+                agPrecoInput = document.getElementById('ag-preco');
+                agDescontoTipo = document.getElementById('ag-desconto-tipo');
+                agDescontoValor = document.getElementById('ag-desconto-valor');
+                agPrecoFinal = document.getElementById('ag-preco-final');
+                agObsInput = document.getElementById('ag-obs');
+                
+                // Dashboard
+                dashboardAgendamentosList = document.getElementById('agendamentos-list');
+
+                // Backup
+                backupButton = document.getElementById('backup-button');
+                restoreButton = document.getElementById('restore-button');
+                restoreInput = document.getElementById('restore-input');
+
+                // Modal
+                modalConfirm = document.getElementById('modal-confirm');
+                modalTitle = document.getElementById('modal-title');
+                modalDescription = document.getElementById('modal-description');
+                modalOk = document.getElementById('modal-ok');
+                modalCancel = document.getElementById('modal-cancel');
+                
+                // Toast
+                toast = document.getElementById('toast');
+                toastMessage = document.getElementById('toast-message');
+                
+                // Novos (Clientes)
+                clienteForm = document.getElementById('cliente-form');
+                cliNomeInput = document.getElementById('cli-nome');
+                cliTelefoneInput = document.getElementById('cli-telefone');
+                cliNascimentoInput = document.getElementById('cli-nascimento');
+                clientesAniversariosList = document.getElementById('clientes-aniversarios');
+                clientesList = document.getElementById('clientes-list');
+
+                // Novos (Relatórios)
+                relatorioForm = document.getElementById('relatorio-form');
+                relDataInicioInput = document.getElementById('rel-data-inicio');
+                relDataFimInput = document.getElementById('rel-data-fim');
+                relatorioResultado = document.getElementById('relatorio-resultado');
+                relatorioPeriodo = document.getElementById('relatorio-periodo');
+                relatorioGanhos = document.getElementById('relatorio-ganhos');
+                relatorioAtendimentos = document.getElementById('relatorio-atendimentos');
+            }
+            
+            function checkLoginState() {
+                // A senha padrão é 'Denef3r'
+                // Aqui estamos apenas limpando o erro, a verificação real é no handleLogin
+                loginError.textContent = '';
+            }
+
+            function handleLogin(event) {
+                event.preventDefault();
+                const pass = document.getElementById('login-password').value;
+                
+                if (pass === "Denef3r") {
+                    showApp();
+                    document.getElementById('login-password').value = '';
+                } else {
+                    loginError.textContent = 'Senha incorreta.';
+                }
+            }
+
+            function handleLogout() {
+                showModal('Sair', 'Tem certeza que deseja sair do aplicativo?', () => {
+                    loginPage.classList.remove('hidden');
+                    mainApp.classList.add('hidden');
+                    hideModal();
+                });
+            }
+
+            function showApp() {
+                loginPage.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                loadState();
+                renderAll();
+            }
+
+            // --- NAVEGAÇÃO ---
+            
+            function handleNavClick(e) {
+                // Encontra o botão (mesmo que o clique seja no ícone SVG)
+                const targetLink = e.target.closest('.nav-link');
+                if (!targetLink) return;
+
+                const targetPageId = targetLink.dataset.page;
+
+                // Esconde todas as páginas
+                pages.forEach(page => page.classList.remove('active'));
+                
+                // Remove 'active-nav' de todos os links
+                navLinks.forEach(link => link.classList.remove('active-nav', 'text-primary-600', 'border-primary-600'));
+                
+                // Mostra a página alvo
+                const targetPage = document.getElementById(targetPageId);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
+                
+                // Ativa o link de navegação
+                targetLink.classList.add('active-nav', 'text-primary-600', 'border-primary-600');
+                
+                // Recarrega os dados relevantes para a página
+                // (Ex: renderiza agendamentos ao ir para o dashboard)
+                if(targetPageId === 'dashboard-page') {
+                    renderAgendamentos();
+                }
+                if(targetPageId === 'agendamento-page') {
+                    // Popula os selects do formulário de agendamento
+                    populateAgendamentoSelects();
+                }
+                if(targetPageId === 'clientes-page') {
+                    renderClientes(); // Renderiza clientes e aniversariantes
+                }
+                if(targetPageId === 'relatorios-page') {
+                    // Limpa o relatório anterior
+                    relatorioResultado.classList.add('hidden');
+                }
+            }
+
+            // --- FUNÇÕES DE RENDERIZAÇÃO (Exibição de Dados) ---
+
+            function renderAll() {
+                renderServicos();
+                renderEstoque();
+                renderAgendamentos();
+                renderClientes(); // Novo
+                // Não renderiza relatórios, pois depende do filtro
+            }
+
+            // Renderiza Serviços
+            function renderServicos() {
+                servicosList.innerHTML = ''; // Limpa a lista
+                if (state.servicos.length === 0) {
+                    servicosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum serviço cadastrado.</p>';
+                    return;
+                }
+                state.servicos.forEach(serv => {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center p-3 bg-secondary-50 rounded-lg';
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-secondary-800">${serv.nome}</p>
+                            <p class="text-sm text-secondary-600">${formatCurrency(serv.preco)}</p>
+                        </div>
+                        <button data-id="${serv.id}" class="delete-servico text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-100">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    servicosList.appendChild(div);
+                });
+            }
+
+            // Renderiza Estoque
+            function renderEstoque() {
+                estoqueList.innerHTML = '';
+                if (state.estoque.length === 0) {
+                    estoqueList.innerHTML = '<p class="text-sm text-gray-500">Nenhum produto em estoque.</p>';
+                    return;
+                }
+                state.estoque.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-secondary-50 rounded-lg';
+                    div.innerHTML = `
+                        <div class="mb-2 sm:mb-0 self-start">
+                            <p class="font-semibold text-secondary-800">${item.nome}</p>
+                            <p class="text-sm text-secondary-600">Qtd: ${item.qtd}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 w-full sm:w-auto">
+                            <input type="number" data-id="${item.id}" value="${item.qtd}" class="update-estoque-qtd flex-grow px-2 py-1 border border-gray-300 rounded-md text-sm">
+                            <button data-id="${item.id}" class="delete-estoque text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-100">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    estoqueList.appendChild(div);
+                });
+            }
+            
+            // Renderiza Agendamentos (Dashboard)
+            function renderAgendamentos() {
+                dashboardAgendamentosList.innerHTML = '';
+                
+                // Filtra agendamentos futuros e ordena
+                const agora = new Date().toISOString();
+                const agendamentosFuturos = state.agendamentos
+                    .filter(ag => ag.data > agora)
+                    .sort((a, b) => (a.data > b.data) ? 1 : -1);
+
+                if (agendamentosFuturos.length === 0) {
+                    dashboardAgendamentosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum agendamento futuro.</p>';
+                    return;
+                }
+
+                agendamentosFuturos.forEach(ag => {
+                    const servico = state.servicos.find(s => s.id === ag.servicoId);
+                    const cliente = state.clientes.find(c => c.id === ag.clienteId); // Novo
+                    
+                    const servicoNome = servico ? servico.nome : 'Serviço excluído';
+                    const clienteNome = cliente ? cliente.nome : 'Cliente excluído'; // Novo
+
+                    const div = document.createElement('div');
+                    div.className = 'border border-gray-200 p-4 rounded-lg shadow-sm';
+                    div.innerHTML = `
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                            <div>
+                                <p class="font-bold text-lg text-primary-700">${clienteNome}</p>
+                                <p class="font-semibold text-gray-700">${servicoNome}</p>
+                            </div>
+                            <p class="font-bold text-lg text-secondary-600 sm:text-right">${formatCurrency(ag.precoFinal)}</p>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-3"><span class="font-medium">Data:</span> ${formatDateTime(ag.data)}</p>
+                        ${ag.obs ? `<p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-md"><span class="font-medium">Obs:</span> ${ag.obs}</p>` : ''}
+                        
+                        <div class="flex items-center justify-between mt-4 pt-3 border-t">
+                            <button data-id="${ag.id}" class="generate-pdf text-sm font-medium text-secondary-700 hover:text-secondary-900 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 11-2 0V4a1 1 0 00-1-1H7a1 1 0 00-1 1v12a1 1 0 11-2 0V4z" clip-rule="evenodd" />
+                                    <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 11-2 0V4a1 1 0 00-1-1H7a1 1 0 00-1 1v12a1 1 0 11-2 0V4z" />
+                                    <path d="M10.894 11.553l-2.29-2.29a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414l-2.29 2.29z" />
+                                </svg>
+                                Comprovante
+                            </button>
+                            <button data-id="${ag.id}" class="delete-agendamento text-sm font-medium text-red-600 hover:text-red-800">
+                                Excluir
+                            </button>
+                        </div>
+                    `;
+                    dashboardAgendamentosList.appendChild(div);
+                });
+            }
+            
+            // Renderiza Clientes (NOVO)
+            function renderClientes() {
+                clientesList.innerHTML = '';
+                clientesAniversariosList.innerHTML = '';
+                
+                if (state.clientes.length === 0) {
+                    clientesList.innerHTML = '<p class="text-sm text-gray-500">Nenhum cliente cadastrado.</p>';
+                }
+                
+                const clientesOrdenados = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome));
+
+                // Lógica de Aniversariantes
+                const hoje = new Date();
+                const hojeDia = hoje.getDate();
+                const hojeMes = hoje.getMonth() + 1; // getMonth() é 0-11
+                const proximos30Dias = new Date();
+                proximos30Dias.setDate(hoje.getDate() + 30);
+
+                const aniversariantes = [];
+
+                clientesOrdenados.forEach(cli => {
+                    // Calcular Total Gasto
+                    const totalGasto = state.agendamentos
+                        .filter(ag => ag.clienteId === cli.id)
+                        .reduce((total, ag) => total + ag.precoFinal, 0);
+
+                    // Renderizar Lista Principal de Clientes
+                    const div = document.createElement('div');
+                    div.className = 'flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-secondary-50 rounded-lg';
+                    div.innerHTML = `
+                        <div class="mb-2 sm:mb-0">
+                            <p class="font-semibold text-secondary-800">${cli.nome}</p>
+                            <p class="text-sm text-secondary-600">${cli.telefone || 'Sem telefone'} | Nasc: ${formatDate(cli.nascimento) || 'N/D'}</p>
+                            <p class="text-sm font-semibold text-secondary-700">Total Gasto: ${formatCurrency(totalGasto)}</p>
+                        </div>
+                        <button data-id="${cli.id}" class="delete-cliente text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-100 self-end sm:self-center">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    clientesList.appendChild(div);
+                    
+                    // Verificar Aniversariantes
+                    if (cli.nascimento) {
+                        const [ano, mes, dia] = cli.nascimento.split('-').map(Number);
+                        if(mes && dia) {
+                            // Cria data de aniversário neste ano
+                            let dataAniversarioEsteAno = new Date(hoje.getFullYear(), mes - 1, dia);
+                            
+                            // Se já passou, verifica o próximo ano
+                            if (dataAniversarioEsteAno < hoje) {
+                                dataAniversarioEsteAno.setFullYear(hoje.getFullYear() + 1);
+                            }
+                            
+                            // Verifica se está nos próximos 30 dias
+                            if (dataAniversarioEsteAno >= hoje && dataAniversarioEsteAno <= proximos30Dias) {
+                                aniversariantes.push({ nome: cli.nome, data: `${dia}/${mes}` });
+                            }
+                        }
+                    }
+                });
+
+                // Renderizar Aniversariantes
+                if (aniversariantes.length === 0) {
+                     clientesAniversariosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum aniversário nos próximos 30 dias.</p>';
+                } else {
+                    aniversariantes.forEach(aniv => {
+                        const p = document.createElement('p');
+                        p.className = 'text-sm text-primary-700';
+                        p.innerHTML = `<span class="font-semibold">${aniv.data}</span> - ${aniv.nome}`;
+                        clientesAniversariosList.appendChild(p);
+                    });
+                }
+            }
+
+            // --- FUNÇÕES DE MANIPULAÇÃO DE DADOS (Handlers) ---
+
+            // Serviços
+            function handleServicoSubmit(event) {
+                event.preventDefault();
+                const nome = servicoNomeInput.value;
+                const preco = parseFloat(servicoPrecoInput.value);
+
+                if (nome && preco > 0) {
+                    const novoServico = {
+                        id: generateUUID(),
+                        nome: nome,
+                        preco: preco
+                    };
+                    state.servicos.push(novoServico);
+                    saveState();
+                    renderServicos();
+                    servicoForm.reset();
+                    showToast('Serviço salvo com sucesso!');
+                }
+            }
+
+            function handleServicoListClick(event) {
+                const target = event.target.closest('.delete-servico');
+                if (target) {
+                    const id = target.dataset.id;
+                    showModal('Excluir Serviço', 'Tem certeza que deseja excluir este serviço?', () => {
+                        state.servicos = state.servicos.filter(s => s.id !== id);
+                        saveState();
+                        renderServicos();
+                        hideModal();
+                        showToast('Serviço excluído.');
+                    });
+                }
+            }
+
+            // Estoque
+            function handleEstoqueSubmit(event) {
+                event.preventDefault();
+                const nome = estoqueNomeInput.value;
+                const qtd = parseInt(estoqueQtdInput.value);
+
+                if (nome && qtd > 0) {
+                    const novoItem = {
+                        id: generateUUID(),
+                        nome: nome,
+                        qtd: qtd
+                    };
+                    state.estoque.push(novoItem);
+                    saveState();
+                    renderEstoque();
+                    estoqueForm.reset();
+                    showToast('Produto adicionado ao estoque!');
+                }
+            }
+
+            function handleEstoqueListClick(event) {
+                const target = event.target;
+                
+                // Deletar
+                if (target.closest('.delete-estoque')) {
+                    const id = target.closest('.delete-estoque').dataset.id;
+                    showModal('Excluir Produto', 'Tem certeza que deseja excluir este produto do estoque?', () => {
+                        state.estoque = state.estoque.filter(item => item.id !== id);
+                        saveState();
+                        renderEstoque();
+                        hideModal();
+                        showToast('Produto excluído.');
+                    });
+                    return; // Importante para não disparar o 'change'
+                }
+            }
+            
+            function handleEstoqueQtyChange(event) {
+                const target = event.target;
+                
+                 // Atualizar Quantidade
+                if (target.classList.contains('update-estoque-qtd')) {
+                    const id = target.dataset.id;
+                    const novaQtd = parseInt(target.value);
+                    const item = state.estoque.find(i => i.id === id);
+                    
+                    if (item && novaQtd >= 0) {
+                        item.qtd = novaQtd;
+                        saveState();
+                        // Não precisa renderizar tudo, apenas atualizar o estado
+                        // Para evitar renderização excessiva, podemos apenas atualizar o <p> de qtd se quiséssemos
+                        // Mas para simplificar, vamos renderizar
+                        renderEstoque(); 
+                        showToast('Quantidade atualizada.');
+                    }
+                }
+            }
+
+            // Clientes (NOVO)
+            function handleClienteSubmit(event) {
+                event.preventDefault();
+                const nome = cliNomeInput.value;
+                const telefone = cliTelefoneInput.value;
+                const nascimento = cliNascimentoInput.value;
+
+                if (!nome) {
+                    alert('O nome do cliente é obrigatório.'); // TODO: Trocar por modal
+                    return;
+                }
+                
+                const novoCliente = {
+                    id: generateUUID(),
+                    nome: nome,
+                    telefone: telefone,
+                    nascimento: nascimento // Formato YYYY-MM-DD
+                };
+                
+                state.clientes.push(novoCliente);
+                saveState();
+                renderClientes();
+                clienteForm.reset();
+                showToast('Cliente salvo com sucesso!');
+            }
+            
+            function handleClienteListClick(event) {
+                const target = event.target.closest('.delete-cliente');
+                if (target) {
+                    const id = target.dataset.id;
+                    
+                    // Verifica se o cliente tem agendamentos
+                    const agendamentosCliente = state.agendamentos.filter(ag => ag.clienteId === id);
+                    if (agendamentosCliente.length > 0) {
+                         showModal('Erro ao Excluir', 'Você não pode excluir um cliente que possui agendamentos. Exclua os agendamentos dele primeiro.', () => hideModal());
+                         modalOk.classList.add('hidden'); // Esconde botão OK
+                    } else {
+                        modalOk.classList.remove('hidden'); // Garante que botão OK está visível
+                        showModal('Excluir Cliente', 'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.', () => {
+                            state.clientes = state.clientes.filter(c => c.id !== id);
+                            saveState();
+                            renderClientes();
+                            hideModal();
+                            showToast('Cliente excluído.');
+                        });
+                    }
+                }
+            }
+
+            // Agendamento
+            function populateAgendamentoSelects() {
+                // Popula Clientes
+                agClienteSelect.innerHTML = '<option value="">Selecione um cliente...</option>';
+                const clientesOrdenados = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome));
+                clientesOrdenados.forEach(cli => {
+                    agClienteSelect.innerHTML += `<option value="${cli.id}">${cli.nome}</option>`;
+                });
+                
+                // Popula Serviços
+                agServicoSelect.innerHTML = '<option value="">Selecione um serviço...</option>';
+                const servicosOrdenados = [...state.servicos].sort((a, b) => a.nome.localeCompare(b.nome));
+                servicosOrdenados.forEach(serv => {
+                    agServicoSelect.innerHTML += `<option value="${serv.id}" data-preco="${serv.preco}">${serv.nome} (${formatCurrency(serv.preco)})</option>`;
+                });
+            }
+
+            function updatePrecoFinal() {
+                const servicoSelecionado = agServicoSelect.options[agServicoSelect.selectedIndex];
+                const precoOriginal = parseFloat(servicoSelecionado.dataset.preco) || 0;
+                
+                agPrecoInput.value = precoOriginal.toFixed(2);
+                
+                const tipoDesconto = agDescontoTipo.value;
+                const valorDesconto = parseFloat(agDescontoValor.value) || 0;
+                
+                let precoFinal = precoOriginal;
+                
+                if (tipoDesconto === 'percent' && valorDesconto > 0) {
+                    precoFinal = precoOriginal - (precoOriginal * (valorDesconto / 100));
+                } else if (tipoDesconto === 'valor' && valorDesconto > 0) {
+                    precoFinal = precoOriginal - valorDesconto;
+                }
+
+                if (precoFinal < 0) {
+                    precoFinal = 0;
+                }
+                
+                agPrecoFinal.textContent = formatCurrency(precoFinal);
+                return precoFinal;
+            }
+
+            function handleAgendamentoSubmit(event) {
+                event.preventDefault();
+                
+                const clienteId = agClienteSelect.value;
+                const servicoId = agServicoSelect.value;
+                const data = agDataInput.value;
+                const obs = agObsInput.value;
+                const precoOriginal = parseFloat(agPrecoInput.value);
+                const precoFinal = updatePrecoFinal(); // Recalcula para garantir
+                
+                if (!clienteId || !servicoId || !data) {
+                    alert('Por favor, preencha Cliente, Serviço e Data.'); // TODO: Trocar por modal
+                    return;
+                }
+                
+                const novoAgendamento = {
+                    id: generateUUID(),
+                    clienteId: clienteId,
+                    servicoId: servicoId,
+                    data: data, // ISO string (YYYY-MM-DDTHH:MM)
+                    obs: obs,
+                    precoOriginal: precoOriginal,
+                    precoFinal: precoFinal
+                };
+                
+                state.agendamentos.push(novoAgendamento);
+                saveState();
+                agendamentoForm.reset();
+                agPrecoFinal.textContent = formatCurrency(0); // Reseta o display
+                
+                showToast('Agendamento salvo com sucesso!');
+                
+                // Navega para o dashboard para ver o agendamento
+                handleNavClick({ target: document.querySelector('button[data-page="dashboard-page"]') });
+            }
+            
+            function handleDashboardListClick(event) {
+                const target = event.target.closest('button');
+                if (!target) return;
+                
+                const id = target.dataset.id;
+                
+                // Deletar
+                if (target.classList.contains('delete-agendamento')) {
+                    showModal('Excluir Agendamento', 'Tem certeza que deseja excluir este agendamento?', () => {
+                        state.agendamentos = state.agendamentos.filter(ag => ag.id !== id);
+                        saveState();
+                        renderAgendamentos(); // Atualiza a lista no dashboard
+                        hideModal();
+                        showToast('Agendamento excluído.');
+                    });
+                }
+                
+                // Gerar PDF
+                if (target.classList.contains('generate-pdf')) {
+                    generatePDFComprovante(id);
+                }
+            }
+
+            // Relatórios (NOVO)
+            function handleRelatorioSubmit(event) {
+                event.preventDefault();
+                const dataInicio = relDataInicioInput.value;
+                const dataFim = relDataFimInput.value;
+
+                if (!dataInicio || !dataFim) {
+                    alert("Por favor, selecione data de início e fim."); // TODO: Mudar modal
+                    return;
+                }
+                
+                // Adiciona a hora final para incluir o dia inteiro
+                const dataFimCompleta = `${dataFim}T23:59:59`;
+
+                const agendamentosNoPeriodo = state.agendamentos.filter(ag => {
+                    return ag.data >= dataInicio && ag.data <= dataFimCompleta;
+                });
+                
+                const totalGanhos = agendamentosNoPeriodo.reduce((total, ag) => total + ag.precoFinal, 0);
+                const totalAtendimentos = agendamentosNoPeriodo.length;
+
+                // Exibe os resultados
+                relatorioPeriodo.textContent = `Resultado para o período: ${formatDate(dataInicio)} até ${formatDate(dataFim)}`;
+                relatorioGanhos.textContent = formatCurrency(totalGanhos);
+                relatorioAtendimentos.textContent = totalAtendimentos;
+                relatorioResultado.classList.remove('hidden');
+            }
+
+            // --- FUNÇÃO DE GERAR PDF ---
+            
+            function generatePDFComprovante(agendamentoId) {
+                const ag = state.agendamentos.find(a => a.id === agendamentoId);
+                if (!ag) return;
+                
+                const servico = state.servicos.find(s => s.id === ag.servicoId);
+                const cliente = state.clientes.find(c => c.id === ag.clienteId);
+                
+                // Carrega o jsPDF do window
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Cabeçalho
+                doc.setFontSize(22);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor('#c52a35'); // Cor 'primary-700'
+                doc.text("PD Gestão", 105, 20, { align: 'center' });
+                doc.setFontSize(14);
+                doc.setTextColor(100); // Cinza
+                doc.setFont('helvetica', 'normal');
+                doc.text("Comprovante de Agendamento", 105, 30, { align: 'center' });
+                
+                // Linha
+                doc.setDrawColor('#fde4e1'); // Cor 'primary-100'
+                doc.line(20, 40, 190, 40);
+
+                // Dados
+                doc.setFontSize(12);
+                doc.setTextColor(40); // Preto
+                let y = 60;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text("Cliente:", 20, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(cliente ? cliente.nome : 'Cliente não encontrado', 60, y);
+                y += 10;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text("Serviço:", 20, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(servico ? servico.nome : 'Serviço não encontrado', 60, y);
+                y += 10;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text("Data e Hora:", 20, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(formatDateTime(ag.data), 60, y);
+                y += 10;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text("Valor Final:", 20, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(formatCurrency(ag.precoFinal), 60, y);
+                y += 10;
+                
+                if (ag.obs) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.text("Observações:", 20, y);
+                    doc.setFont('helvetica', 'normal');
+                    // 'splitTextToSize' quebra a linha automaticamente
+                    const obsLines = doc.splitTextToSize(ag.obs, 130); 
+                    doc.text(obsLines, 60, y);
+                    y += (obsLines.length * 5); // Adiciona espaço extra para observações longas
+                }
+                
+                // Rodapé
+                y += 20;
+                doc.setDrawColor('#fde4e1'); // Cor 'primary-100'
+                doc.line(20, y, 190, y);
+                y += 10;
+                doc.setFontSize(10);
+                doc.setTextColor(150); // Cinza claro
+                doc.text("Obrigado por agendar conosco!", 105, y, { align: 'center' });
+                y += 5;
+                doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 105, y, { align: 'center' });
+
+                // Salva o arquivo
+                doc.save(`Comprovante_${cliente ? cliente.nome.split(' ')[0] : 'Agendamento'}_${ag.data.split('T')[0]}.pdf`);
+                showToast('Comprovante PDF gerado!');
+            }
+
+
+            // --- FUNÇÕES DE BACKUP/RESTAURAÇÃO ---
+            
+            function handleBackup() {
+                try {
+                    const dataStr = JSON.stringify(state, null, 4); // 'null, 4' formata o JSON
+                    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                    
+                    const a = document.createElement('a');
+                    a.href = dataUri;
+                    a.download = `pd_gestao_backup_${new Date().toISOString().split('T')[0]}.json`;
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showToast('Backup realizado com sucesso!');
+                    
+                } catch (error) {
+                    console.error("Erro ao gerar backup:", error);
+                    alert("Erro ao gerar backup. Veja o console para detalhes.");
+                }
+            }
+            
+            function handleRestore() {
+                const file = restoreInput.files[0];
+                if (!file) {
+                    alert('Por favor, selecione um arquivo de backup.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const newState = JSON.parse(event.target.result);
+                        
+                        // ** LÓGICA DE MIGRAÇÃO **
+                        // Se o backup não tiver 'clientes', e os agendamentos tiverem 'cliente' (string)
+                        // Precisamos migrar os dados.
+                        if (!newState.clientes && newState.agendamentos && newState.agendamentos.length > 0 && typeof newState.agendamentos[0].cliente === 'string') {
+                            showToast('Detectamos um backup antigo. Migrando dados...');
+                            const migratedData = migrateOldBackup(newState);
+                            loadRestoredData(migratedData);
+                        } else {
+                            // Carregamento normal
+                            loadRestoredData(newState);
+                        }
+                        
+                    } catch (error) {
+                        console.error("Erro ao ler backup:", error);
+                        alert("Erro ao ler arquivo de backup. O arquivo pode estar corrompido ou em formato inválido.");
+                    }
+                };
+                reader.readAsText(file);
+            }
+            
+            function migrateOldBackup(oldState) {
+                let newClientes = [];
+                let newAgendamentos = [];
+                let clienteMap = new Map(); // Para não duplicar clientes
+
+                oldState.agendamentos.forEach(ag => {
+                    let clienteId;
+                    const nomeCliente = ag.cliente; // Nome string do formato antigo
+
+                    if (clienteMap.has(nomeCliente)) {
+                        clienteId = clienteMap.get(nomeCliente);
+                    } else {
+                        // Cria um novo cliente
+                        const novoCliente = {
+                            id: generateUUID(),
+                            nome: nomeCliente,
+                            telefone: '', // Dados antigos não tinham telefone
+                            nascimento: ''
+                        };
+                        newClientes.push(novoCliente);
+                        clienteId = novoCliente.id;
+                        clienteMap.set(nomeCliente, clienteId);
+                    }
+                    
+                    // Cria o novo agendamento com 'clienteId'
+                    newAgendamentos.push({
+                        ...ag,
+                        cliente: undefined, // Remove o campo antigo
+                        clienteId: clienteId // Adiciona o campo novo
+                    });
+                });
+
+                return {
+                    servicos: oldState.servicos || [],
+                    estoque: oldState.estoque || [],
+                    agendamentos: newAgendamentos,
+                    clientes: newClientes
+                };
+            }
+            
+            function loadRestoredData(newState) {
+                 // Confirmação final
+                showModal('Restaurar Backup', 'Todos os dados atuais serão substituídos pelos dados do backup. Deseja continuar?', () => {
+                    state.servicos = newState.servicos || [];
+                    state.estoque = newState.estoque || [];
+                    state.agendamentos = newState.agendamentos || [];
+                    state.clientes = newState.clientes || [];
+                    
+                    saveState();
+                    renderAll();
+                    hideModal();
+                    restoreInput.value = ''; // Limpa o input
+                    showToast('Dados restaurados com sucesso!');
+                    // Volta para o Início
+                    handleNavClick({ target: document.querySelector('button[data-page="dashboard-page"]') });
+                });
+            }
+
+            // --- REGISTRO DE EVENT LISTENERS ---
+            
+            function registerEventListeners() {
+                // Autenticação
+                checkLoginState(); // Verifica o estado inicial
+                loginForm.addEventListener('submit', handleLogin);
+                logoutButton.addEventListener('click', handleLogout);
+
+                // Navegação
+                navLinks.forEach(link => {
+                    link.addEventListener('click', handleNavClick);
+                });
+
+                // Modais
+                modalOk.addEventListener('click', () => {
+                    if (modalConfirmCallback) {
+                        modalConfirmCallback();
+                    }
+                });
+                modalCancel.addEventListener('click', hideModal);
+
+                // Formulários
+                servicoForm.addEventListener('submit', handleServicoSubmit);
+                estoqueForm.addEventListener('submit', handleEstoqueSubmit);
+                agendamentoForm.addEventListener('submit', handleAgendamentoSubmit);
+                clienteForm.addEventListener('submit', handleClienteSubmit); // Novo
+                relatorioForm.addEventListener('submit', handleRelatorioSubmit); // Novo
+
+                // Listas ( cliques de delete/update)
+                servicosList.addEventListener('click', handleServicoListClick);
+                estoqueList.addEventListener('click', handleEstoqueListClick);
+                estoqueList.addEventListener('change', handleEstoqueQtyChange); // Para o input de qtd
+                dashboardAgendamentosList.addEventListener('click', handleDashboardListClick);
+                clientesList.addEventListener('click', handleClienteListClick); // Novo
+                
+                // Agendamento (Cálculo de preço)
+                agServicoSelect.addEventListener('change', updatePrecoFinal);
+                agDescontoTipo.addEventListener('change', updatePrecoFinal);
+                agDescontoValor.addEventListener('input', updatePrecoFinal);
+                
+                // Backup/Restore
+                backupButton.addEventListener('click', handleBackup);
+                restoreButton.addEventListener('click', handleRestore);
+            }
+
+            // --- PONTO DE ENTRADA ---
+            initializeDOMElements();
+            registerEventListeners();
+        }; // Fim do window.onload
+    </script>
+</body>
+</html>
