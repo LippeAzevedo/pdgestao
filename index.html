@@ -168,19 +168,30 @@
         <!-- Conteúdo da Página -->
         <main class="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
             
-            <!-- PÁGINA: INÍCIO (DASHBOARD) -->
-            <div id="dashboard-page" class="page active">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Próximos Agendamentos</h2>
-                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
-                    <div id="agendamentos-list" class="space-y-4">
-                        <!-- Agendamentos serão inseridos aqui -->
+            <!-- PÁGINA: INÍCIO (DASHBOARD) - MODIFICADA -->
+            <div id="dashboard-page" class="page active space-y-8">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Agendamentos Pendentes</h2>
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <div id="agendamentos-list-pendentes" class="space-y-4">
+                            <!-- Agendamentos pendentes serão inseridos aqui -->
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Histórico de Agendamentos</h2>
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <div id="agendamentos-list-historico" class="space-y-4">
+                            <!-- Histórico (concluídos/cancelados) será inserido aqui -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- PÁGINA: NOVO AGENDAMENTO -->
+            <!-- PÁGINA: NOVO AGENDAMENTO - MODIFICADA -->
             <div id="agendamento-page" class="page">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Novo Agendamento</h2>
+                <h2 id="agendamento-form-title" class="text-2xl font-bold text-gray-800 mb-6">Novo Agendamento</h2>
                 <form id="agendamento-form" class="p-4 sm:p-6 bg-white rounded-xl shadow-lg max-w-2xl mx-auto space-y-4">
                     
                     <!-- Campo Cliente (Modificado para Select) -->
@@ -237,7 +248,7 @@
                     </div>
 
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500">
+                        <button id="agendamento-submit-btn" type="submit" class="w-full sm:w-auto flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500">
                             Salvar Agendamento
                         </button>
                     </div>
@@ -379,6 +390,7 @@
                 <div id="relatorio-resultado" class="hidden">
                     <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
                         <h3 id="relatorio-periodo" class="text-lg font-semibold text-gray-700 mb-4">Resultado para o período:</h3>
+                        <p class="text-xs text-gray-500 -mt-3 mb-4">(Apenas agendamentos com status "Concluído")</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div class="bg-secondary-50 p-4 rounded-lg">
                                 <p class="text-sm font-medium text-secondary-700">Ganhos Totais</p>
@@ -461,11 +473,11 @@
         window.onload = function() {
             // --- VARIÁVEIS GLOBAIS ---
             let loginPage, mainApp, loginForm, loginError, logoutButton;
-            let navLinks, pages;
+            let navLinks, pages, dashboardPage;
             let servicoForm, servicoNomeInput, servicoPrecoInput, servicosList;
             let estoqueForm, estoqueNomeInput, estoqueQtdInput, estoqueList;
             let agendamentoForm, agClienteSelect, agServicoSelect, agDataInput, agPrecoInput, agDescontoTipo, agDescontoValor, agPrecoFinal, agObsInput;
-            let dashboardAgendamentosList;
+            let dashboardAgendamentosListPendentes, dashboardAgendamentosListHistorico; // Modificado
             let backupButton, restoreButton, restoreInput;
             let modalConfirm, modalTitle, modalDescription, modalOk, modalCancel;
             let toast, toastMessage;
@@ -479,10 +491,11 @@
                 servicos: [],
                 estoque: [],
                 agendamentos: [],
-                clientes: [] // Novo
+                clientes: [] 
             };
             
             let modalConfirmCallback = null;
+            let editModeAgendamentoId = null; // Para controlar a edição de agendamentos
 
             // --- FUNÇÕES DE UTILIDADE ---
 
@@ -526,6 +539,8 @@
                 modalDescription.textContent = description;
                 modalConfirmCallback = callback;
                 modalConfirm.classList.remove('hidden');
+                // Garante que o botão OK esteja visível (pode ser escondido pelo alerta de cliente)
+                modalOk.classList.remove('hidden');
             }
 
             function hideModal() {
@@ -540,23 +555,46 @@
                     toast.classList.add('hidden');
                 }, 3000);
             }
+            
+            // Retorna um "badge" de status para o agendamento
+            function getStatusBadge(ag) {
+                const agora = new Date().toISOString();
+                if (ag.status === 'concluido') {
+                    return '<span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Concluído</span>';
+                }
+                if (ag.status === 'cancelado') {
+                    return '<span class="text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Cancelado</span>';
+                }
+                if (ag.status === 'agendado' && ag.data < agora) {
+                    return '<span class="text-xs font-medium bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Atrasado</span>';
+                }
+                // NOVO: Adiciona o status "Agendado" para agendamentos futuros
+                if (ag.status === 'agendado') { // Implica ag.data > agora (pela lógica do filtro)
+                    return '<span class="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Agendado</span>';
+                }
+                // Fallback
+                return `<span class="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">${ag.status}</span>`;
+            }
+
 
             // --- FUNÇÕES DE PERSISTÊNCIA (localStorage) ---
             
-            // (Não precisamos mais de load/saveConfig para a senha)
-
             function loadState() {
                 state.servicos = JSON.parse(localStorage.getItem('pdGestao_servicos')) || [];
                 state.estoque = JSON.parse(localStorage.getItem('pdGestao_estoque')) || [];
-                state.agendamentos = JSON.parse(localStorage.getItem('pdGestao_agendamentos')) || [];
-                state.clientes = JSON.parse(localStorage.getItem('pdGestao_clientes')) || []; // Novo
+                // Adiciona status padrão a agendamentos antigos que não o possuam
+                state.agendamentos = (JSON.parse(localStorage.getItem('pdGestao_agendamentos')) || []).map(ag => ({
+                    ...ag,
+                    status: ag.status || 'agendado' // Garante que agendamentos antigos tenham um status
+                }));
+                state.clientes = JSON.parse(localStorage.getItem('pdGestao_clientes')) || []; 
             }
 
             function saveState() {
                 localStorage.setItem('pdGestao_servicos', JSON.stringify(state.servicos));
                 localStorage.setItem('pdGestao_estoque', JSON.stringify(state.estoque));
                 localStorage.setItem('pdGestao_agendamentos', JSON.stringify(state.agendamentos));
-                localStorage.setItem('pdGestao_clientes', JSON.stringify(state.clientes)); // Novo
+                localStorage.setItem('pdGestao_clientes', JSON.stringify(state.clientes)); 
             }
 
             // --- INICIALIZAÇÃO E AUTENTICAÇÃO ---
@@ -571,6 +609,7 @@
                 
                 navLinks = document.querySelectorAll('.nav-link');
                 pages = document.querySelectorAll('.page');
+                dashboardPage = document.getElementById('dashboard-page'); // Para event listener
 
                 // Serviços
                 servicoForm = document.getElementById('servico-form');
@@ -595,8 +634,9 @@
                 agPrecoFinal = document.getElementById('ag-preco-final');
                 agObsInput = document.getElementById('ag-obs');
                 
-                // Dashboard
-                dashboardAgendamentosList = document.getElementById('agendamentos-list');
+                // Dashboard (Modificado)
+                dashboardAgendamentosListPendentes = document.getElementById('agendamentos-list-pendentes');
+                dashboardAgendamentosListHistorico = document.getElementById('agendamentos-list-historico');
 
                 // Backup
                 backupButton = document.getElementById('backup-button');
@@ -614,7 +654,7 @@
                 toast = document.getElementById('toast');
                 toastMessage = document.getElementById('toast-message');
                 
-                // Novos (Clientes)
+                // Clientes
                 clienteForm = document.getElementById('cliente-form');
                 cliNomeInput = document.getElementById('cli-nome');
                 cliTelefoneInput = document.getElementById('cli-telefone');
@@ -622,7 +662,7 @@
                 clientesAniversariosList = document.getElementById('clientes-aniversarios');
                 clientesList = document.getElementById('clientes-list');
 
-                // Novos (Relatórios)
+                // Relatórios
                 relatorioForm = document.getElementById('relatorio-form');
                 relDataInicioInput = document.getElementById('rel-data-inicio');
                 relDataFimInput = document.getElementById('rel-data-fim');
@@ -633,8 +673,6 @@
             }
             
             function checkLoginState() {
-                // A senha padrão é 'Denef3r'
-                // Aqui estamos apenas limpando o erro, a verificação real é no handleLogin
                 loginError.textContent = '';
             }
 
@@ -668,41 +706,42 @@
             // --- NAVEGAÇÃO ---
             
             function handleNavClick(e) {
-                // Encontra o botão (mesmo que o clique seja no ícone SVG)
                 const targetLink = e.target.closest('.nav-link');
                 if (!targetLink) return;
 
                 const targetPageId = targetLink.dataset.page;
 
-                // Esconde todas as páginas
+                // Resetar modo de edição se sair da página de agendamento
+                if (targetPageId !== 'agendamento-page' && editModeAgendamentoId) {
+                    editModeAgendamentoId = null;
+                    agendamentoForm.reset();
+                    updatePrecoFinal(); // Reseta o preço
+                    document.getElementById('agendamento-form-title').textContent = 'Novo Agendamento';
+                    document.getElementById('agendamento-submit-btn').textContent = 'Salvar Agendamento';
+                }
+
                 pages.forEach(page => page.classList.remove('active'));
-                
-                // Remove 'active-nav' de todos os links
                 navLinks.forEach(link => link.classList.remove('active-nav', 'text-primary-600', 'border-primary-600'));
                 
-                // Mostra a página alvo
                 const targetPage = document.getElementById(targetPageId);
                 if (targetPage) {
                     targetPage.classList.add('active');
                 }
                 
-                // Ativa o link de navegação
                 targetLink.classList.add('active-nav', 'text-primary-600', 'border-primary-600');
                 
                 // Recarrega os dados relevantes para a página
-                // (Ex: renderiza agendamentos ao ir para o dashboard)
                 if(targetPageId === 'dashboard-page') {
                     renderAgendamentos();
                 }
-                if(targetPageId === 'agendamento-page') {
-                    // Popula os selects do formulário de agendamento
+                if(targetPageId === 'agendamento-page' && !editModeAgendamentoId) {
+                    // Popula os selects (apenas se não estiver em modo de edição, pois a edição já chama isso)
                     populateAgendamentoSelects();
                 }
                 if(targetPageId === 'clientes-page') {
-                    renderClientes(); // Renderiza clientes e aniversariantes
+                    renderClientes(); 
                 }
                 if(targetPageId === 'relatorios-page') {
-                    // Limpa o relatório anterior
                     relatorioResultado.classList.add('hidden');
                 }
             }
@@ -713,13 +752,12 @@
                 renderServicos();
                 renderEstoque();
                 renderAgendamentos();
-                renderClientes(); // Novo
-                // Não renderiza relatórios, pois depende do filtro
+                renderClientes();
             }
 
             // Renderiza Serviços
             function renderServicos() {
-                servicosList.innerHTML = ''; // Limpa a lista
+                servicosList.innerHTML = ''; 
                 if (state.servicos.length === 0) {
                     servicosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum serviço cadastrado.</p>';
                     return;
@@ -770,60 +808,98 @@
                 });
             }
             
-            // Renderiza Agendamentos (Dashboard)
+            // Renderiza Agendamentos (Dashboard) - MODIFICADO
             function renderAgendamentos() {
-                dashboardAgendamentosList.innerHTML = '';
+                dashboardAgendamentosListPendentes.innerHTML = '';
+                dashboardAgendamentosListHistorico.innerHTML = '';
                 
-                // Filtra agendamentos futuros e ordena
                 const agora = new Date().toISOString();
-                const agendamentosFuturos = state.agendamentos
-                    .filter(ag => ag.data > agora)
+                
+                // 1. Agendamentos Pendentes (status 'agendado' E data futura) -> MUDADO: Apenas status 'agendado'
+                const agendamentosPendentes = state.agendamentos
+                    .filter(ag => ag.status === 'agendado') // MUDANÇA: Mostra todos agendados (futuros e atrasados)
                     .sort((a, b) => (a.data > b.data) ? 1 : -1);
 
-                if (agendamentosFuturos.length === 0) {
-                    dashboardAgendamentosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum agendamento futuro.</p>';
-                    return;
-                }
+                if (agendamentosPendentes.length === 0) {
+                    dashboardAgendamentosListPendentes.innerHTML = '<p class="text-sm text-gray-500">Nenhum agendamento pendente.</p>'; // MUDANÇA
+                } else {
+                    agendamentosPendentes.forEach(ag => {
+                        const servico = state.servicos.find(s => s.id === ag.servicoId);
+                        const cliente = state.clientes.find(c => c.id === ag.clienteId); 
+                        const servicoNome = servico ? servico.nome : 'Serviço excluído';
+                        const clienteNome = cliente ? cliente.nome : 'Cliente excluído'; 
 
-                agendamentosFuturos.forEach(ag => {
-                    const servico = state.servicos.find(s => s.id === ag.servicoId);
-                    const cliente = state.clientes.find(c => c.id === ag.clienteId); // Novo
-                    
-                    const servicoNome = servico ? servico.nome : 'Serviço excluído';
-                    const clienteNome = cliente ? cliente.nome : 'Cliente excluído'; // Novo
-
-                    const div = document.createElement('div');
-                    div.className = 'border border-gray-200 p-4 rounded-lg shadow-sm';
-                    div.innerHTML = `
-                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
-                            <div>
-                                <p class="font-bold text-lg text-primary-700">${clienteNome}</p>
-                                <p class="font-semibold text-gray-700">${servicoNome}</p>
+                        const div = document.createElement('div');
+                        div.className = 'border border-gray-200 p-4 rounded-lg shadow-sm';
+                        div.innerHTML = `
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                                <div>
+                                    <p class="font-bold text-lg text-primary-700">${clienteNome}</p>
+                                    <p class="font-semibold text-gray-700 mb-1">${servicoNome}</p>
+                                    ${getStatusBadge(ag)} <!-- ADICIONADO -->
+                                </div>
+                                <p class="font-bold text-lg text-secondary-600 sm:text-right">${formatCurrency(ag.precoFinal)}</p>
                             </div>
-                            <p class="font-bold text-lg text-secondary-600 sm:text-right">${formatCurrency(ag.precoFinal)}</p>
-                        </div>
-                        <p class="text-sm text-gray-500 mb-3"><span class="font-medium">Data:</span> ${formatDateTime(ag.data)}</p>
-                        ${ag.obs ? `<p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-md"><span class="font-medium">Obs:</span> ${ag.obs}</p>` : ''}
-                        
-                        <div class="flex items-center justify-between mt-4 pt-3 border-t">
-                            <button data-id="${ag.id}" class="generate-pdf text-sm font-medium text-secondary-700 hover:text-secondary-900 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 11-2 0V4a1 1 0 00-1-1H7a1 1 0 00-1 1v12a1 1 0 11-2 0V4z" clip-rule="evenodd" />
-                                    <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 11-2 0V4a1 1 0 00-1-1H7a1 1 0 00-1 1v12a1 1 0 11-2 0V4z" />
-                                    <path d="M10.894 11.553l-2.29-2.29a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414l-2.29 2.29z" />
-                                </svg>
-                                Comprovante
-                            </button>
-                            <button data-id="${ag.id}" class="delete-agendamento text-sm font-medium text-red-600 hover:text-red-800">
-                                Excluir
-                            </button>
-                        </div>
-                    `;
-                    dashboardAgendamentosList.appendChild(div);
-                });
+                            <p class="text-sm text-gray-500 mb-3"><span class="font-medium">Data:</span> ${formatDateTime(ag.data)}</p>
+                            ${ag.obs ? `<p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-md"><span class="font-medium">Obs:</span> ${ag.obs}</p>` : ''}
+                            
+                            <div class="flex items-center justify-end flex-wrap gap-2 mt-4 pt-3 border-t">
+                                <button data-id="${ag.id}" class="generate-pdf text-xs font-medium text-secondary-700 hover:text-secondary-900 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm2 10a1 1 0 100-2h4a1 1 0 100 2H8zm0-3a1 1 0 000-2h4a1 1 0 100 2H8z" clip-rule="evenodd" /></svg>
+                                    Comprovante
+                                </button>
+                                <button data-id="${ag.id}" class="edit-agendamento text-xs font-medium text-blue-600 hover:text-blue-800">Editar</button>
+                                <button data-id="${ag.id}" class="cancel-agendamento text-xs font-medium text-red-600 hover:text-red-800">Cancelar</button>
+                                <button data-id="${ag.id}" class="complete-agendamento text-xs font-medium text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded-md">Concluir</button>
+                            </div>
+                        `;
+                        dashboardAgendamentosListPendentes.appendChild(div);
+                    });
+                }
+                
+                // 2. Histórico (status != 'agendado' OU data passada)
+                const agendamentosHistorico = state.agendamentos
+                    .filter(ag => ag.status !== 'agendado') // MUDANÇA: Histórico é apenas o que NÃO está agendado
+                    .sort((a, b) => (a.data > b.data) ? -1 : 1); // Mais recente primeiro
+                
+                if (agendamentosHistorico.length === 0) {
+                    dashboardAgendamentosListHistorico.innerHTML = '<p class="text-sm text-gray-500">Nenhum agendamento no histórico.</p>';
+                } else {
+                    agendamentosHistorico.forEach(ag => {
+                        const servico = state.servicos.find(s => s.id === ag.servicoId);
+                        const cliente = state.clientes.find(c => c.id === ag.clienteId); 
+                        const servicoNome = servico ? servico.nome : 'Serviço excluído';
+                        const clienteNome = cliente ? cliente.nome : 'Cliente excluído'; 
+
+                        const div = document.createElement('div');
+                        div.className = 'border border-gray-200 p-4 rounded-lg shadow-sm';
+                        div.innerHTML = `
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                                <div>
+                                    <p class="font-bold text-lg text-gray-600">${clienteNome}</p>
+                                    <p class="font-semibold text-gray-500">${servicoNome}</p>
+                                </div>
+                                <div class="sm:text-right">
+                                     ${getStatusBadge(ag)}
+                                     <p class="font-bold text-lg text-gray-500 mt-1">${formatCurrency(ag.precoFinal)}</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3"><span class="font-medium">Data:</span> ${formatDateTime(ag.data)}</p>
+                            ${ag.obs ? `<p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-md"><span class="font-medium">Obs:</span> ${ag.obs}</p>` : ''}
+                            
+                            <div class="flex items-center justify-end mt-4 pt-3 border-t">
+                                <button data-id="${ag.id}" class="generate-pdf text-sm font-medium text-secondary-700 hover:text-secondary-900 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm2 10a1 1 0 100-2h4a1 1 0 100 2H8zm0-3a1 1 0 000-2h4a1 1 0 100 2H8z" clip-rule="evenodd" /></svg>
+                                    Comprovante
+                                </button>
+                            </div>
+                        `;
+                        dashboardAgendamentosListHistorico.appendChild(div);
+                    });
+                }
             }
             
-            // Renderiza Clientes (NOVO)
+            // Renderiza Clientes
             function renderClientes() {
                 clientesList.innerHTML = '';
                 clientesAniversariosList.innerHTML = '';
@@ -834,29 +910,24 @@
                 
                 const clientesOrdenados = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome));
 
-                // Lógica de Aniversariantes
                 const hoje = new Date();
-                const hojeDia = hoje.getDate();
-                const hojeMes = hoje.getMonth() + 1; // getMonth() é 0-11
                 const proximos30Dias = new Date();
                 proximos30Dias.setDate(hoje.getDate() + 30);
-
                 const aniversariantes = [];
 
                 clientesOrdenados.forEach(cli => {
-                    // Calcular Total Gasto
+                    // Calcular Total Gasto (APENAS CONCLUÍDOS)
                     const totalGasto = state.agendamentos
-                        .filter(ag => ag.clienteId === cli.id)
+                        .filter(ag => ag.clienteId === cli.id && ag.status === 'concluido') // MODIFICADO
                         .reduce((total, ag) => total + ag.precoFinal, 0);
 
-                    // Renderizar Lista Principal de Clientes
                     const div = document.createElement('div');
                     div.className = 'flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-secondary-50 rounded-lg';
                     div.innerHTML = `
                         <div class="mb-2 sm:mb-0">
                             <p class="font-semibold text-secondary-800">${cli.nome}</p>
                             <p class="text-sm text-secondary-600">${cli.telefone || 'Sem telefone'} | Nasc: ${formatDate(cli.nascimento) || 'N/D'}</p>
-                            <p class="text-sm font-semibold text-secondary-700">Total Gasto: ${formatCurrency(totalGasto)}</p>
+                            <p class="text-sm font-semibold text-secondary-700">Total Gasto (Concluído): ${formatCurrency(totalGasto)}</p>
                         </div>
                         <button data-id="${cli.id}" class="delete-cliente text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-100 self-end sm:self-center">
                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -866,19 +937,13 @@
                     `;
                     clientesList.appendChild(div);
                     
-                    // Verificar Aniversariantes
                     if (cli.nascimento) {
                         const [ano, mes, dia] = cli.nascimento.split('-').map(Number);
                         if(mes && dia) {
-                            // Cria data de aniversário neste ano
                             let dataAniversarioEsteAno = new Date(hoje.getFullYear(), mes - 1, dia);
-                            
-                            // Se já passou, verifica o próximo ano
                             if (dataAniversarioEsteAno < hoje) {
                                 dataAniversarioEsteAno.setFullYear(hoje.getFullYear() + 1);
                             }
-                            
-                            // Verifica se está nos próximos 30 dias
                             if (dataAniversarioEsteAno >= hoje && dataAniversarioEsteAno <= proximos30Dias) {
                                 aniversariantes.push({ nome: cli.nome, data: `${dia}/${mes}` });
                             }
@@ -886,10 +951,10 @@
                     }
                 });
 
-                // Renderizar Aniversariantes
                 if (aniversariantes.length === 0) {
                      clientesAniversariosList.innerHTML = '<p class="text-sm text-gray-500">Nenhum aniversário nos próximos 30 dias.</p>';
                 } else {
+                    aniversariantes.sort((a,b) => a.data.localeCompare(b.data)); // Ordena por data
                     aniversariantes.forEach(aniv => {
                         const p = document.createElement('p');
                         p.className = 'text-sm text-primary-700';
@@ -958,7 +1023,6 @@
             function handleEstoqueListClick(event) {
                 const target = event.target;
                 
-                // Deletar
                 if (target.closest('.delete-estoque')) {
                     const id = target.closest('.delete-estoque').dataset.id;
                     showModal('Excluir Produto', 'Tem certeza que deseja excluir este produto do estoque?', () => {
@@ -968,15 +1032,14 @@
                         hideModal();
                         showToast('Produto excluído.');
                     });
-                    return; // Importante para não disparar o 'change'
+                    return; 
                 }
             }
             
             function handleEstoqueQtyChange(event) {
                 const target = event.target;
                 
-                 // Atualizar Quantidade
-                if (target.classList.contains('update-estoque-qtd')) {
+                 if (target.classList.contains('update-estoque-qtd')) {
                     const id = target.dataset.id;
                     const novaQtd = parseInt(target.value);
                     const item = state.estoque.find(i => i.id === id);
@@ -984,16 +1047,13 @@
                     if (item && novaQtd >= 0) {
                         item.qtd = novaQtd;
                         saveState();
-                        // Não precisa renderizar tudo, apenas atualizar o estado
-                        // Para evitar renderização excessiva, podemos apenas atualizar o <p> de qtd se quiséssemos
-                        // Mas para simplificar, vamos renderizar
                         renderEstoque(); 
                         showToast('Quantidade atualizada.');
                     }
                 }
             }
 
-            // Clientes (NOVO)
+            // Clientes
             function handleClienteSubmit(event) {
                 event.preventDefault();
                 const nome = cliNomeInput.value;
@@ -1001,7 +1061,8 @@
                 const nascimento = cliNascimentoInput.value;
 
                 if (!nome) {
-                    alert('O nome do cliente é obrigatório.'); // TODO: Trocar por modal
+                    showModal('Erro', 'O nome do cliente é obrigatório.', () => hideModal());
+                    modalOk.classList.add('hidden');
                     return;
                 }
                 
@@ -1009,7 +1070,7 @@
                     id: generateUUID(),
                     nome: nome,
                     telefone: telefone,
-                    nascimento: nascimento // Formato YYYY-MM-DD
+                    nascimento: nascimento 
                 };
                 
                 state.clientes.push(novoCliente);
@@ -1024,13 +1085,11 @@
                 if (target) {
                     const id = target.dataset.id;
                     
-                    // Verifica se o cliente tem agendamentos
                     const agendamentosCliente = state.agendamentos.filter(ag => ag.clienteId === id);
                     if (agendamentosCliente.length > 0) {
-                         showModal('Erro ao Excluir', 'Você não pode excluir um cliente que possui agendamentos. Exclua os agendamentos dele primeiro.', () => hideModal());
+                         showModal('Erro ao Excluir', 'Você não pode excluir um cliente que possui agendamentos (mesmo os históricos).', () => hideModal());
                          modalOk.classList.add('hidden'); // Esconde botão OK
                     } else {
-                        modalOk.classList.remove('hidden'); // Garante que botão OK está visível
                         showModal('Excluir Cliente', 'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.', () => {
                             state.clientes = state.clientes.filter(c => c.id !== id);
                             saveState();
@@ -1044,14 +1103,12 @@
 
             // Agendamento
             function populateAgendamentoSelects() {
-                // Popula Clientes
                 agClienteSelect.innerHTML = '<option value="">Selecione um cliente...</option>';
                 const clientesOrdenados = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome));
                 clientesOrdenados.forEach(cli => {
                     agClienteSelect.innerHTML += `<option value="${cli.id}">${cli.nome}</option>`;
                 });
                 
-                // Popula Serviços
                 agServicoSelect.innerHTML = '<option value="">Selecione um serviço...</option>';
                 const servicosOrdenados = [...state.servicos].sort((a, b) => a.nome.localeCompare(b.nome));
                 servicosOrdenados.forEach(serv => {
@@ -1084,6 +1141,7 @@
                 return precoFinal;
             }
 
+            // MODIFICADO (para incluir Edição)
             function handleAgendamentoSubmit(event) {
                 event.preventDefault();
                 
@@ -1095,83 +1153,153 @@
                 const precoFinal = updatePrecoFinal(); // Recalcula para garantir
                 
                 if (!clienteId || !servicoId || !data) {
-                    alert('Por favor, preencha Cliente, Serviço e Data.'); // TODO: Trocar por modal
+                    showModal('Erro', 'Por favor, preencha Cliente, Serviço e Data.', () => hideModal());
+                    modalOk.classList.add('hidden');
                     return;
                 }
+
+                if (editModeAgendamentoId) {
+                    // MODO DE EDIÇÃO
+                    const ag = state.agendamentos.find(a => a.id === editModeAgendamentoId);
+                    if (ag) {
+                        ag.clienteId = clienteId;
+                        ag.servicoId = servicoId;
+                        ag.data = data;
+                        ag.obs = obs;
+                        ag.precoOriginal = precoOriginal;
+                        ag.precoFinal = precoFinal;
+                        // O status ('agendado') não muda
+                    }
+                    showToast('Agendamento atualizado com sucesso!');
+                } else {
+                    // MODO DE CRIAÇÃO
+                    const novoAgendamento = {
+                        id: generateUUID(),
+                        clienteId: clienteId,
+                        servicoId: servicoId,
+                        data: data, 
+                        obs: obs,
+                        precoOriginal: precoOriginal,
+                        precoFinal: precoFinal,
+                        status: 'agendado' // NOVO CAMPO
+                    };
+                    state.agendamentos.push(novoAgendamento);
+                    showToast('Agendamento salvo com sucesso!');
+                }
                 
-                const novoAgendamento = {
-                    id: generateUUID(),
-                    clienteId: clienteId,
-                    servicoId: servicoId,
-                    data: data, // ISO string (YYYY-MM-DDTHH:MM)
-                    obs: obs,
-                    precoOriginal: precoOriginal,
-                    precoFinal: precoFinal
-                };
-                
-                state.agendamentos.push(novoAgendamento);
                 saveState();
                 agendamentoForm.reset();
-                agPrecoFinal.textContent = formatCurrency(0); // Reseta o display
+                agPrecoFinal.textContent = formatCurrency(0); 
+                editModeAgendamentoId = null; // Reseta o modo de edição
                 
-                showToast('Agendamento salvo com sucesso!');
+                // Reseta o formulário
+                document.getElementById('agendamento-form-title').textContent = 'Novo Agendamento';
+                document.getElementById('agendamento-submit-btn').textContent = 'Salvar Agendamento';
                 
-                // Navega para o dashboard para ver o agendamento
+                // Navega para o dashboard
                 handleNavClick({ target: document.querySelector('button[data-page="dashboard-page"]') });
             }
             
-            function handleDashboardListClick(event) {
+            // NOVO (Listener na página do Dashboard para todas as ações)
+            function handleDashboardActions(event) {
                 const target = event.target.closest('button');
                 if (!target) return;
                 
                 const id = target.dataset.id;
+                if (!id) return;
+
+                const ag = state.agendamentos.find(a => a.id === id);
                 
-                // Deletar
-                if (target.classList.contains('delete-agendamento')) {
-                    showModal('Excluir Agendamento', 'Tem certeza que deseja excluir este agendamento?', () => {
-                        state.agendamentos = state.agendamentos.filter(ag => ag.id !== id);
+                // Gerar PDF (disponível em ambos)
+                if (target.classList.contains('generate-pdf')) {
+                    if (!ag) return;
+                    generatePDFComprovante(id);
+                    return;
+                }
+                
+                // Ações de status (apenas pendentes)
+                if (target.classList.contains('complete-agendamento')) {
+                    if (!ag) return;
+                    ag.status = 'concluido';
+                    saveState();
+                    renderAgendamentos();
+                    showToast('Agendamento concluído!');
+                }
+                
+                if (target.classList.contains('cancel-agendamento')) {
+                    if (!ag) return;
+                    showModal('Cancelar Agendamento', 'Tem certeza que deseja cancelar este agendamento? Ele será movido para o histórico.', () => {
+                        ag.status = 'cancelado';
                         saveState();
-                        renderAgendamentos(); // Atualiza a lista no dashboard
+                        renderAgendamentos();
                         hideModal();
-                        showToast('Agendamento excluído.');
+                        showToast('Agendamento cancelado.');
                     });
                 }
                 
-                // Gerar PDF
-                if (target.classList.contains('generate-pdf')) {
-                    generatePDFComprovante(id);
+                if (target.classList.contains('edit-agendamento')) {
+                    if (!ag) return;
+                    handleEditAgendamento(ag);
                 }
             }
 
-            // Relatórios (NOVO)
+            // NOVO (Função para popular o form de edição)
+            function handleEditAgendamento(ag) {
+                editModeAgendamentoId = ag.id;
+                
+                // Navega para a página de agendamento
+                handleNavClick({ target: document.querySelector('button[data-page="agendamento-page"]') });
+                
+                // Popula os selects PRIMEIRO
+                populateAgendamentoSelects(); 
+                
+                // Define os valores
+                agClienteSelect.value = ag.clienteId;
+                agServicoSelect.value = ag.servicoId;
+                agDataInput.value = ag.data;
+                agObsInput.value = ag.obs;
+                
+                // Define o preço (e reseta descontos, pois não salvamos o tipo)
+                // O usuário terá que reinserir o desconto se necessário
+                agDescontoTipo.value = 'nenhum';
+                agDescontoValor.value = '';
+                updatePrecoFinal(); // Atualiza o preço com base no serviço
+                
+                // Altera a UI do formulário
+                document.getElementById('agendamento-form-title').textContent = 'Editar Agendamento';
+                document.getElementById('agendamento-submit-btn').textContent = 'Atualizar Agendamento';
+            }
+
+            // Relatórios (MODIFICADO)
             function handleRelatorioSubmit(event) {
                 event.preventDefault();
                 const dataInicio = relDataInicioInput.value;
                 const dataFim = relDataFimInput.value;
 
                 if (!dataInicio || !dataFim) {
-                    alert("Por favor, selecione data de início e fim."); // TODO: Mudar modal
+                    showModal('Erro', 'Por favor, selecione data de início e fim.', () => hideModal());
+                    modalOk.classList.add('hidden');
                     return;
                 }
                 
-                // Adiciona a hora final para incluir o dia inteiro
                 const dataFimCompleta = `${dataFim}T23:59:59`;
 
                 const agendamentosNoPeriodo = state.agendamentos.filter(ag => {
-                    return ag.data >= dataInicio && ag.data <= dataFimCompleta;
+                    return ag.data >= dataInicio && 
+                           ag.data <= dataFimCompleta &&
+                           ag.status === 'concluido'; // MODIFICADO
                 });
                 
                 const totalGanhos = agendamentosNoPeriodo.reduce((total, ag) => total + ag.precoFinal, 0);
                 const totalAtendimentos = agendamentosNoPeriodo.length;
 
-                // Exibe os resultados
                 relatorioPeriodo.textContent = `Resultado para o período: ${formatDate(dataInicio)} até ${formatDate(dataFim)}`;
                 relatorioGanhos.textContent = formatCurrency(totalGanhos);
                 relatorioAtendimentos.textContent = totalAtendimentos;
                 relatorioResultado.classList.remove('hidden');
             }
 
-            // --- FUNÇÃO DE GERAR PDF ---
+            // --- FUNÇÃO DE GERAR PDF (Design MODIFICADO) ---
             
             function generatePDFComprovante(agendamentoId) {
                 const ag = state.agendamentos.find(a => a.id === agendamentoId);
@@ -1180,73 +1308,120 @@
                 const servico = state.servicos.find(s => s.id === ag.servicoId);
                 const cliente = state.clientes.find(c => c.id === ag.clienteId);
                 
-                // Carrega o jsPDF do window
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                // Cabeçalho
-                doc.setFontSize(22);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor('#c52a35'); // Cor 'primary-700'
-                doc.text("PD Gestão", 105, 20, { align: 'center' });
-                doc.setFontSize(14);
-                doc.setTextColor(100); // Cinza
-                doc.setFont('helvetica', 'normal');
-                doc.text("Comprovante de Agendamento", 105, 30, { align: 'center' });
-                
-                // Linha
-                doc.setDrawColor('#fde4e1'); // Cor 'primary-100'
-                doc.line(20, 40, 190, 40);
+                // --- Definição das Cores "Chique" ---
+                const corPrincipal = '#c52a35';      // primary-700 (forte)
+                const corSecundaria = '#3c8178';    // secondary-700 (verde)
+                const corFundoBox = '#fef3f2';     // primary-50 (rosa bem claro)
+                const corTextoLabels = '#3c8178';   // secondary-700
+                const corTextoValor = '#333333';    // Cinza escuro
+                const corLinha = '#e0e0e0';        // Cinza claro
+                const corBranco = '#FFFFFF';
 
-                // Dados
+                // --- Cabeçalho "Chique" ---
+                doc.setFillColor(corPrincipal);
+                doc.rect(0, 0, 210, 25, 'F'); // Retângulo de fundo (mais curto)
+                
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(corBranco);
+                doc.text("PD Gestão", 20, 16); // Alinhado à esquerda
+                
                 doc.setFontSize(12);
-                doc.setTextColor(40); // Preto
-                let y = 60;
-                
-                doc.setFont('helvetica', 'bold');
-                doc.text("Cliente:", 20, y);
                 doc.setFont('helvetica', 'normal');
-                doc.text(cliente ? cliente.nome : 'Cliente não encontrado', 60, y);
-                y += 10;
-                
+                doc.text("Comprovante de Agendamento", 190, 16, { align: 'right' }); // Alinhado à direita
+
+                // --- Título da Seção ---
+                let y = 45; // Ponto inicial do conteúdo
+                doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
-                doc.text("Serviço:", 20, y);
-                doc.setFont('helvetica', 'normal');
-                doc.text(servico ? servico.nome : 'Serviço não encontrado', 60, y);
-                y += 10;
-                
-                doc.setFont('helvetica', 'bold');
-                doc.text("Data e Hora:", 20, y);
-                doc.setFont('helvetica', 'normal');
-                doc.text(formatDateTime(ag.data), 60, y);
-                y += 10;
-                
-                doc.setFont('helvetica', 'bold');
-                doc.text("Valor Final:", 20, y);
-                doc.setFont('helvetica', 'normal');
-                doc.text(formatCurrency(ag.precoFinal), 60, y);
-                y += 10;
-                
-                if (ag.obs) {
+                doc.setTextColor(corSecundaria);
+                doc.text("Detalhes do Agendamento", 20, y);
+                y += 8;
+                doc.setDrawColor(corLinha);
+                doc.line(20, y, 190, y); // Linha fina abaixo do título
+                y += 15;
+
+                // --- Conteúdo (Layout de Colunas) ---
+                doc.setFontSize(12);
+                const xLabel = 20;
+                const xValue = 70; // Ponto de início dos valores
+
+                // Função auxiliar para desenhar linha
+                const addInfoLinha = (label, value) => {
                     doc.setFont('helvetica', 'bold');
-                    doc.text("Observações:", 20, y);
+                    doc.setTextColor(corTextoLabels);
+                    doc.text(label, xLabel, y);
+                    
                     doc.setFont('helvetica', 'normal');
-                    // 'splitTextToSize' quebra a linha automaticamente
-                    const obsLines = doc.splitTextToSize(ag.obs, 130); 
-                    doc.text(obsLines, 60, y);
-                    y += (obsLines.length * 5); // Adiciona espaço extra para observações longas
-                }
+                    doc.setTextColor(corTextoValor);
+                    doc.text(value, xValue, y);
+                    y += 12; // Espaçamento maior
+                };
+
+                addInfoLinha("Cliente:", cliente ? cliente.nome : 'Cliente não encontrado');
+                addInfoLinha("Telefone:", cliente ? (cliente.telefone || 'N/D') : 'N/D');
+                addInfoLinha("Serviço:", servico ? servico.nome : 'Serviço não encontrado');
+                addInfoLinha("Data e Hora:", formatDateTime(ag.data));
                 
-                // Rodapé
-                y += 20;
-                doc.setDrawColor('#fde4e1'); // Cor 'primary-100'
-                doc.line(20, y, 190, y);
+                // Tratamento de Observações
+                if (ag.obs) {
+                    y += 5; // Espaço antes das observações
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(corTextoLabels);
+                    doc.text("Observações:", xLabel, y);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(corTextoValor);
+                    const obsLines = doc.splitTextToSize(ag.obs, 120); // 190 (largura) - 70 (xValue) = 120
+                    doc.text(obsLines, xValue, y);
+                    y += (obsLines.length * 5) + 10; // Espaço dinâmico
+                }
+
+                // --- Linha de Total ---
                 y += 10;
-                doc.setFontSize(10);
-                doc.setTextColor(150); // Cinza claro
-                doc.text("Obrigado por agendar conosco!", 105, y, { align: 'center' });
-                y += 5;
-                doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 105, y, { align: 'center' });
+                doc.setDrawColor(corLinha);
+                doc.line(20, y, 190, y); // Linha grossa
+                y += 15;
+
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(corPrincipal); // Cor principal no total
+                doc.text("Valor Total:", 20, y);
+                
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(corTextoValor);
+                doc.text(formatCurrency(ag.precoFinal), 190, y, { align: 'right' });
+
+                // --- Box de Agradecimento ---
+                y += 25;
+                doc.setFillColor(corFundoBox);
+                doc.setDrawColor(corPrincipal); // Borda na cor principal
+                doc.roundedRect(20, y, 170, 25, 3, 3, 'FD'); // Retângulo arredondado (F=Fill, D=Draw)
+                
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(corPrincipal);
+                doc.text("Obrigado pela preferência!", 105, y + 12, { align: 'center' });
+                
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text("Aguardamos sua visita.", 105, y + 18, { align: 'center' });
+
+
+                // --- Rodapé Fixo ---
+                const yFooter = 285;
+                doc.setDrawColor(corLinha);
+                doc.line(20, yFooter, 190, yFooter); // Linha fina
+                
+                doc.setFontSize(9);
+                doc.setTextColor(150); // Cinza
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Comprovante gerado em: ${new Date().toLocaleString('pt-BR')}`, 105, yFooter + 8, { align: 'center' });
+
 
                 // Salva o arquivo
                 doc.save(`Comprovante_${cliente ? cliente.nome.split(' ')[0] : 'Agendamento'}_${ag.data.split('T')[0]}.pdf`);
@@ -1258,7 +1433,7 @@
             
             function handleBackup() {
                 try {
-                    const dataStr = JSON.stringify(state, null, 4); // 'null, 4' formata o JSON
+                    const dataStr = JSON.stringify(state, null, 4); 
                     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
                     
                     const a = document.createElement('a');
@@ -1289,14 +1464,11 @@
                         const newState = JSON.parse(event.target.result);
                         
                         // ** LÓGICA DE MIGRAÇÃO **
-                        // Se o backup não tiver 'clientes', e os agendamentos tiverem 'cliente' (string)
-                        // Precisamos migrar os dados.
                         if (!newState.clientes && newState.agendamentos && newState.agendamentos.length > 0 && typeof newState.agendamentos[0].cliente === 'string') {
                             showToast('Detectamos um backup antigo. Migrando dados...');
                             const migratedData = migrateOldBackup(newState);
                             loadRestoredData(migratedData);
                         } else {
-                            // Carregamento normal
                             loadRestoredData(newState);
                         }
                         
@@ -1311,20 +1483,19 @@
             function migrateOldBackup(oldState) {
                 let newClientes = [];
                 let newAgendamentos = [];
-                let clienteMap = new Map(); // Para não duplicar clientes
+                let clienteMap = new Map(); 
 
                 oldState.agendamentos.forEach(ag => {
                     let clienteId;
-                    const nomeCliente = ag.cliente; // Nome string do formato antigo
+                    const nomeCliente = ag.cliente; 
 
                     if (clienteMap.has(nomeCliente)) {
                         clienteId = clienteMap.get(nomeCliente);
                     } else {
-                        // Cria um novo cliente
                         const novoCliente = {
                             id: generateUUID(),
                             nome: nomeCliente,
-                            telefone: '', // Dados antigos não tinham telefone
+                            telefone: '',
                             nascimento: ''
                         };
                         newClientes.push(novoCliente);
@@ -1332,11 +1503,11 @@
                         clienteMap.set(nomeCliente, clienteId);
                     }
                     
-                    // Cria o novo agendamento com 'clienteId'
                     newAgendamentos.push({
                         ...ag,
-                        cliente: undefined, // Remove o campo antigo
-                        clienteId: clienteId // Adiciona o campo novo
+                        cliente: undefined, 
+                        clienteId: clienteId,
+                        status: 'agendado' // Adiciona status padrão
                     });
                 });
 
@@ -1349,19 +1520,21 @@
             }
             
             function loadRestoredData(newState) {
-                 // Confirmação final
                 showModal('Restaurar Backup', 'Todos os dados atuais serão substituídos pelos dados do backup. Deseja continuar?', () => {
                     state.servicos = newState.servicos || [];
                     state.estoque = newState.estoque || [];
-                    state.agendamentos = newState.agendamentos || [];
+                    // Garante que o status seja adicionado a dados restaurados
+                    state.agendamentos = (newState.agendamentos || []).map(ag => ({
+                        ...ag,
+                        status: ag.status || 'agendado'
+                    }));
                     state.clientes = newState.clientes || [];
                     
                     saveState();
                     renderAll();
                     hideModal();
-                    restoreInput.value = ''; // Limpa o input
+                    restoreInput.value = ''; 
                     showToast('Dados restaurados com sucesso!');
-                    // Volta para o Início
                     handleNavClick({ target: document.querySelector('button[data-page="dashboard-page"]') });
                 });
             }
@@ -1370,7 +1543,7 @@
             
             function registerEventListeners() {
                 // Autenticação
-                checkLoginState(); // Verifica o estado inicial
+                checkLoginState(); 
                 loginForm.addEventListener('submit', handleLogin);
                 logoutButton.addEventListener('click', handleLogout);
 
@@ -1391,15 +1564,15 @@
                 servicoForm.addEventListener('submit', handleServicoSubmit);
                 estoqueForm.addEventListener('submit', handleEstoqueSubmit);
                 agendamentoForm.addEventListener('submit', handleAgendamentoSubmit);
-                clienteForm.addEventListener('submit', handleClienteSubmit); // Novo
-                relatorioForm.addEventListener('submit', handleRelatorioSubmit); // Novo
+                clienteForm.addEventListener('submit', handleClienteSubmit); 
+                relatorioForm.addEventListener('submit', handleRelatorioSubmit); 
 
                 // Listas ( cliques de delete/update)
                 servicosList.addEventListener('click', handleServicoListClick);
                 estoqueList.addEventListener('click', handleEstoqueListClick);
-                estoqueList.addEventListener('change', handleEstoqueQtyChange); // Para o input de qtd
-                dashboardAgendamentosList.addEventListener('click', handleDashboardListClick);
-                clientesList.addEventListener('click', handleClienteListClick); // Novo
+                estoqueList.addEventListener('change', handleEstoqueQtyChange);
+                dashboardPage.addEventListener('click', handleDashboardActions); // Listener único no PAI
+                clientesList.addEventListener('click', handleClienteListClick); 
                 
                 // Agendamento (Cálculo de preço)
                 agServicoSelect.addEventListener('change', updatePrecoFinal);
