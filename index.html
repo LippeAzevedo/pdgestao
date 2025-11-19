@@ -22,11 +22,6 @@
             -moz-appearance: textfield; /* Firefox */
         }
         
-        /* Adiciona um preenchimento inferior seguro para a barra de navegação flutuante no celular */
-        body {
-            padding-bottom: 90px; /* Ajuste este valor se a altura da barra de navegação mudar */
-        }
-        
         /* Estilos para Impressão Térmica */
         @media print {
             body > *, #app > * {
@@ -41,6 +36,13 @@
                 top: 0;
                 left: 0;
             }
+        }
+        
+        /* Utilitário para transição suave do menu */
+        .sidebar-transition {
+            transition-property: transform, opacity, visibility;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
         }
     </style>
     
@@ -111,10 +113,46 @@
     <div id="app" class="hidden h-full">
         <!-- Cabeçalho (Fixo no Topo) -->
         <header class="sticky top-0 z-30 w-full bg-pastel-card/80 shadow-sm backdrop-blur-md">
-            <div class="mx-auto max-w-4xl px-4 py-3">
+            <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+                <!-- Botão do Menu Hambúrguer -->
+                <button id="menuBtn" class="rounded-lg p-2 text-primary-600 hover:bg-primary-50 focus:outline-none">
+                    <i data-lucide="menu" class="h-6 w-6"></i>
+                </button>
+                
                 <h1 id="pageTitle" class="text-center text-xl font-bold text-primary-600">Início</h1>
+                
+                <!-- Espaçador para manter o título centralizado -->
+                <div class="w-10"></div> 
             </div>
         </header>
+
+        <!-- Menu Lateral (Sidebar) -->
+        <div id="sidebarOverlay" class="fixed inset-0 z-40 hidden bg-black/50 transition-opacity opacity-0 duration-300"></div>
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 -translate-x-full bg-pastel-card shadow-2xl sidebar-transition">
+            <div class="flex h-full flex-col">
+                <!-- Header do Menu -->
+                <div class="flex items-center justify-between border-b border-gray-100 p-4 bg-primary-50">
+                    <h2 class="text-xl font-bold text-primary-600">PD Gestão</h2>
+                    <button id="closeMenuBtn" class="rounded-full p-1 text-pastel-text-light hover:bg-white hover:text-primary-600 focus:outline-none">
+                        <i data-lucide="x" class="h-6 w-6"></i>
+                    </button>
+                </div>
+                
+                <!-- Itens de Navegação -->
+                <nav id="sidebarNav" class="flex-1 overflow-y-auto p-4 space-y-1">
+                    <!-- Inserido via JS -->
+                </nav>
+                
+                <!-- Footer do Menu (Logout) -->
+                <div class="border-t border-gray-100 p-4 bg-gray-50">
+                    <button id="sidebarLogoutBtn" class="flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-red-500 hover:bg-red-50 transition-colors">
+                        <i data-lucide="log-out" class="h-5 w-5"></i>
+                        <span class="font-medium">Sair do Sistema</span>
+                    </button>
+                    <p class="mt-2 text-center text-xs text-pastel-text-light">Versão 1.2.0</p>
+                </div>
+            </div>
+        </aside>
 
         <!-- Container das Páginas -->
         <main class="mx-auto w-full max-w-4xl px-4 py-5">
@@ -427,13 +465,6 @@
                 </div>
             </div>
         </main>
-
-        <!-- Barra de Navegação (Fixa embaixo) -->
-        <nav class="fixed bottom-0 left-0 z-40 w-full border-t border-gray-200 bg-pastel-card shadow-inner">
-            <div id="nav-bar" class="mx-auto grid max-w-4xl grid-cols-7">
-                <!-- Os botões de navegação serão inseridos aqui pelo JS -->
-            </div>
-        </nav>
     </div>
     
     <!-- Modal de Confirmação (Genérico) -->
@@ -502,9 +533,16 @@
             const loginError = document.getElementById('loginError');
             const app = document.getElementById('app');
             const pageTitle = document.getElementById('pageTitle');
-            const navBar = document.getElementById('nav-bar');
             const pages = document.querySelectorAll('.page');
             
+            // Sidebar Elements
+            const menuBtn = document.getElementById('menuBtn');
+            const closeMenuBtn = document.getElementById('closeMenuBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarNav = document.getElementById('sidebarNav');
+            const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+
             // Formulários
             const servicoForm = document.getElementById('servicoForm');
             const estoqueForm = document.getElementById('estoqueForm');
@@ -597,11 +635,12 @@
             const navItems = [
                 { id: 'inicio', label: 'Início', icon: 'Home' },
                 { id: 'agendar', label: 'Agendar', icon: 'CalendarPlus' },
-                { id: 'caixa', label: 'Caixa', icon: 'ShoppingCart' }, // NOVO
+                { id: 'caixa', label: 'Caixa', icon: 'ShoppingCart' },
                 { id: 'clientes', label: 'Clientes', icon: 'Users' },
                 { id: 'servicos', label: 'Serviços', icon: 'Scissors' },
                 { id: 'estoque', label: 'Estoque', icon: 'Archive' },
                 { id: 'relatorios', label: 'Relatórios', icon: 'BarChart3' },
+                { id: 'backup', label: 'Backup', icon: 'DatabaseBackup' },
             ];
 
 
@@ -628,16 +667,19 @@
                 // Login
                 loginForm.addEventListener('submit', handleLogin);
                 
-                // Navegação
-                createNavButtons();
-                navBar.addEventListener('click', handleNavClick);
-                
+                // Sidebar
+                menuBtn.addEventListener('click', () => toggleMenu(true));
+                closeMenuBtn.addEventListener('click', () => toggleMenu(false));
+                sidebarOverlay.addEventListener('click', () => toggleMenu(false));
+                sidebarLogoutBtn.addEventListener('click', handleLogout);
+                createSidebarItems(); // Renderiza os itens do menu
+
                 // Formulários
                 servicoForm.addEventListener('submit', handleServicoSubmit);
                 estoqueForm.addEventListener('submit', handleEstoqueSubmit);
                 agendamentoForm.addEventListener('submit', handleAgendamentoSubmit);
                 clienteForm.addEventListener('submit', handleClienteSubmit);
-                caixaForm.addEventListener('submit', handleFinalizarVenda); // NOVO
+                caixaForm.addEventListener('submit', handleFinalizarVenda);
                 
                 // Botões de Agendamento
                 addServicoBtn.addEventListener('click', handleAddServico);
@@ -736,73 +778,73 @@
                 }
             }
 
-            // --- NAVEGAÇÃO E UI ---
+            // --- NAVEGAÇÃO E UI (SIDEBAR) ---
 
             /**
-             * Cria os botões da barra de navegação dinamicamente
+             * Abre ou fecha o menu lateral
              */
-            function createNavButtons() {
-                navBar.innerHTML = ''; // Limpa a barra
+            function toggleMenu(show) {
+                if (show) {
+                    sidebarOverlay.classList.remove('hidden');
+                    // Pequeno delay para permitir a transição de opacidade
+                    setTimeout(() => {
+                        sidebarOverlay.classList.remove('opacity-0');
+                        sidebar.classList.remove('-translate-x-full');
+                    }, 10);
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    sidebarOverlay.classList.add('opacity-0');
+                    // Aguarda a transição antes de esconder
+                    setTimeout(() => {
+                        sidebarOverlay.classList.add('hidden');
+                    }, 300);
+                }
+            }
+
+            /**
+             * Cria os botões da barra de navegação lateral
+             */
+            function createSidebarItems() {
+                sidebarNav.innerHTML = ''; 
                 
-                // Adiciona item "Backup"
-                const allNavItems = [...navItems, { id: 'backup', label: 'Backup', icon: 'DatabaseBackup' }];
-                
-                // CORREÇÃO: Converte CamelCase para kebab-case para o data-lucide
+                // Converte CamelCase para kebab-case para o data-lucide
                 const toKebabCase = (str) => str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 
-                allNavItems.forEach(item => {
+                navItems.forEach(item => {
                     const iconName = item.icon;
                     const button = document.createElement('button');
                     button.dataset.page = item.id;
-                    button.className = `nav-button flex flex-col items-center justify-center space-y-1 p-3 text-pastel-text-light transition-colors duration-200 ${item.id === 'inicio' ? 'text-primary-600' : ''}`;
+                    button.className = `sidebar-btn w-full flex items-center space-x-3 rounded-lg px-4 py-3 text-left font-medium transition-colors duration-200 ${item.id === 'inicio' ? 'bg-primary-50 text-primary-600' : 'text-pastel-text hover:bg-secondary-50'}`;
                     
-                    // CORREÇÃO: Usa <i> com data-lucide
                     const kebabIconName = toKebabCase(iconName);
-                    const iconElement = `<i data-lucide="${kebabIconName}" class="h-6 w-6 sm:h-5 sm:w-5" stroke-width="2"></i>`;
+                    const iconElement = `<i data-lucide="${kebabIconName}" class="h-5 w-5"></i>`;
                     
                     button.innerHTML = `
                         ${iconElement}
-                        <span class="text-xs font-medium sm:block md:text-sm">${item.label}</span>
+                        <span>${item.label}</span>
                     `;
-                    navBar.appendChild(button);
+                    
+                    // Adiciona evento de clique direto no botão gerado
+                    button.addEventListener('click', () => {
+                        showPage(item.id);
+                        toggleMenu(false); // Fecha o menu ao clicar
+                    });
+                    
+                    sidebarNav.appendChild(button);
                 });
-                
-                // Adiciona o ícone de logout separado
-                const logoutButton = document.createElement('button');
-                logoutButton.id = 'logoutBtn';
-                // Ajusta a classe do grid da navbar para o novo número de itens (7 + 1 logout = 8)
-                navBar.className = 'mx-auto grid max-w-4xl grid-cols-8';
-                logoutButton.className = 'nav-button flex flex-col items-center justify-center space-y-1 p-3 text-pastel-text-light transition-colors duration-200';
-                
-                // CORREÇÃO: Usa <i> com data-lucide para o logout
-                logoutButton.innerHTML = `
-                    <i data-lucide="log-out" class="h-6 w-6 sm:h-5 sm:w-5" stroke-width="2"></i>
-                    <span class="text-xs font-medium sm:block md:text-sm">Sair</span>
-                `;
-                logoutButton.addEventListener('click', handleLogout);
-                navBar.appendChild(logoutButton);
                 
                 // Recria os ícones Lucide
                 lucide.createIcons();
             }
             
-            /**
-             * Lida com o clique na barra de navegação
-             */
-            function handleNavClick(e) {
-                const button = e.target.closest('.nav-button');
-                if (!button) return;
-
-                const pageId = button.dataset.page;
-                if (pageId) {
-                    showPage(pageId);
-                }
-            }
+            // Não precisamos mais de handleNavClick global pois adicionamos listeners individuais
+            // function handleNavClick(e) { ... }
 
             /**
              * Lida com o logout do usuário
              */
             function handleLogout() {
+                toggleMenu(false);
                 showModal('Confirmar Saída', 'Tem certeza que deseja sair? Seus dados estão salvos no navegador.', () => {
                     localStorage.removeItem(APP_PREFIX + 'loggedIn');
                     // Recarrega a página para voltar à tela de login
@@ -827,14 +869,14 @@
                 const navItem = navItems.find(item => item.id === pageId);
                 pageTitle.textContent = navItem ? navItem.label : 'PD Gestão';
                 
-                // Atualiza o estado da barra de navegação
-                document.querySelectorAll('.nav-button').forEach(btn => {
+                // Atualiza o estado da barra de navegação lateral
+                document.querySelectorAll('.sidebar-btn').forEach(btn => {
                     if (btn.dataset.page === pageId) {
-                        btn.classList.add('text-primary-600');
-                        btn.classList.remove('text-pastel-text-light');
+                        btn.classList.add('bg-primary-50', 'text-primary-600');
+                        btn.classList.remove('text-pastel-text', 'hover:bg-secondary-50');
                     } else {
-                        btn.classList.remove('text-primary-600');
-                        btn.classList.add('text-pastel-text-light');
+                        btn.classList.remove('bg-primary-50', 'text-primary-600');
+                        btn.classList.add('text-pastel-text', 'hover:bg-secondary-50');
                     }
                 });
 
@@ -856,7 +898,7 @@
                     renderEstoque();
                 } else if (pageId === 'relatorios') {
                     renderRelatorios();
-                } else if (pageId === 'caixa') { // NOVO
+                } else if (pageId === 'caixa') {
                     populateCaixaProdutoSelect();
                     resetCaixaForm();
                 }
